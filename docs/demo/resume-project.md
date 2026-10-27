@@ -16,7 +16,7 @@ Java 21、Spring Boot 3.5、Spring AI、MyBatis-Plus、Flyway、MySQL、Vue 3、
   - 设计岗位 JD + 简历画像 + 题库标签的蓝图生成流程，支持基础、项目、场景题与动态追问。
   - 实现 SSE 流式面试对话、提示/跳过/断点恢复与练习模式逐题评估。
   - 设计五维评分（准确性、深度、项目表现、表达逻辑、岗位匹配）与薄弱点推荐。
-  - 实现管理员题库 CRUD 与普通用户每日 3 场额度控制。
+  - 实现管理员题库 CRUD 与可配置的每日额度控制（默认关闭）。
   - 使用 Docker Compose + Nginx 完成一键部署，Nginx 同时托管 SPA 与反代 API。
 - **Result：**
   - 后端 48 个自动化测试全部通过，前端构建通过。
@@ -28,4 +28,4 @@ Java 21、Spring Boot 3.5、Spring AI、MyBatis-Plus、Flyway、MySQL、Vue 3、
 
 - 独立开发 AI 模拟面试平台，打通岗位/简历解析、面试蓝图、SSE 多轮追问、五维报告与薄弱点推荐闭环。
 - 基于 Spring Boot 3.5 + Spring AI + MyBatis-Plus + MySQL 构建后端，Vue3 + TypeScript 构建前端。
-- 实现管理员题库后台与每日额度；Docker Compose + Nginx 一键部署，20 并发完整链路压测成功率 100%。
+- 实现管理员题库后台与可配置额度；Docker Compose + Nginx 一键部署，20 并发完整链路压测成功率 100%。

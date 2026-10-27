@@ -387,7 +387,7 @@ WHERE id = ? AND session_id = ? AND status = 'ASKED';
 
 **背景**
 
-当前 `QuotaService` 对普通用户限制每日 3 场；用户已决定「默认取消限制，保留框架」。该改动尚未实施。
+当前 `QuotaService` 对普通用户限制每日 3 场；用户已决定「默认取消限制，保留框架」，该策略已实施（2026-10-27）。
 
 **方案**
 
@@ -700,7 +700,7 @@ CREATE INDEX idx_question_bank_status_category ON question_bank(status, category
 APP_AI_ENABLED=true
 DEEPSEEK_API_KEY=sk-...
 
-# 额度（默认关闭，待实施）
+# 额度（默认关闭）
 APP_QUOTA_ENFORCE=false
 
 # 生产必须设置

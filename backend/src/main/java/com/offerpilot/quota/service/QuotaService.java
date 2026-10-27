@@ -21,18 +21,21 @@ public class QuotaService {
     private final UserQuotaMapper quotaMapper;
     private final int freeDailySessions;
     private final int freeDailyTokens;
+    private final boolean enforce;
 
     public QuotaService(UserQuotaMapper quotaMapper,
                         @Value("${app.quota.free-daily-sessions:3}") int freeDailySessions,
-                        @Value("${app.quota.free-daily-tokens:200000}") int freeDailyTokens) {
+                        @Value("${app.quota.free-daily-tokens:200000}") int freeDailyTokens,
+                        @Value("${app.quota.enforce:false}") boolean enforce) {
         this.quotaMapper = quotaMapper;
         this.freeDailySessions = freeDailySessions;
         this.freeDailyTokens = freeDailyTokens;
+        this.enforce = enforce;
     }
 
     @Transactional
     public void checkAndConsumeSession(Long userId) {
-        if (isAdmin()) {
+        if (!enforce || isAdmin()) {
             return;
         }
         UserQuota quota = getOrCreate(userId);
@@ -45,6 +48,9 @@ public class QuotaService {
     }
 
     public QuotaView me(Long userId) {
+        if (!enforce) {
+            return new QuotaView("UNLIMITED", -1, 0, -1, -1, 0, null);
+        }
         if (isAdmin()) {
             return new QuotaView("ADMIN", -1, 0, -1, -1, 0, null);
         }

@@ -15,6 +15,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       APP_AI_ENABLED: ${APP_AI_ENABLED:-false}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      APP_QUOTA_ENFORCE: ${APP_QUOTA_ENFORCE:-false}
       OFFERPILOT_UPLOAD_DIR: /app/data/uploads
     extra_hosts:
       - "host.docker.internal:host-gateway"

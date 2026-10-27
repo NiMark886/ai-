@@ -160,7 +160,7 @@ python scripts/load_test.py --users 20 --base-url http://localhost:8080
 | GET | `/api/interviews/history` | 面试历史 |
 | GET | `/api/stats/overview` | 成长统计 |
 | GET | `/api/stats/weaknesses` | 薄弱点与推荐题目 |
-| GET | `/api/quota/me` | 当前用户额度 |
+| GET | `/api/quota/me` | 当前用户额度（默认不限） |
 | GET | `/api/admin/questions` | 管理员题库分页 |
 | POST | `/api/admin/questions` | 管理员新增题目 |
 | PUT | `/api/admin/questions/{id}` | 管理员编辑题目 |
@@ -202,11 +202,11 @@ AI 调用失败会自动回退 Mock 生成器，不会阻塞面试创建。上�
 
 管理员登录后首页会出现“题库管理”入口，可对题库进行分页查询、新增、编辑和软删除；普通用户访问管理员接口返回 403。
 
-## 每日额度
+## 额度（默认关闭）
 
-- 普通用户每天最多创建 3 场面试（模拟面试与练习模式共用额度），第 4 场返回 HTTP 429（`code=42902`）。
-- 管理员不限额度，`/api/quota/me` 返回 `plan=ADMIN`、`remainingSessions=-1`。
-- 创建面试弹窗会显示“今日剩余 X 场”，额度按自然日重置。
+- 默认所有用户不限面试场次，`/api/quota/me` 返回 `plan=UNLIMITED`、`remainingSessions=-1`。
+- 设置 `APP_QUOTA_ENFORCE=true` 可恢复普通用户每日 3 场限制（模拟面试与练习模式共用额度），第 4 场返回 HTTP 429（`code=42902`）；管理员始终不限。
+- 额度按自然日重置；创建面试弹窗默认不再显示额度提示。
 
 ## 报告与成长
 

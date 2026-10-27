@@ -58,6 +58,7 @@ app:
   ai:
     enabled: ${APP_AI_ENABLED:false}
   quota:
+    enforce: ${APP_QUOTA_ENFORCE:false}
     free-daily-sessions: 3
     free-daily-tokens: 200000
   storage:

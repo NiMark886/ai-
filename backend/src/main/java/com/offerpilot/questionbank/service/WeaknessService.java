@@ -42,7 +42,8 @@ public class WeaknessService {
         List<InterviewSession> sessions = sessionMapper.selectList(
                 new LambdaQueryWrapper<InterviewSession>()
                         .eq(InterviewSession::getUserId, userId)
-                        .orderByDesc(InterviewSession::getCreatedAt));
+                        .orderByDesc(InterviewSession::getCreatedAt)
+                        .last("LIMIT 100"));
         if (sessions.isEmpty()) {
             return List.of();
         }

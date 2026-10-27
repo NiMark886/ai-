@@ -28,7 +28,10 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class InterviewService {
@@ -120,14 +123,23 @@ public class InterviewService {
     }
 
     public List<InterviewSessionView> list(Long userId) {
-        return sessionMapper.selectList(new LambdaQueryWrapper<InterviewSession>()
+        List<InterviewSession> sessions = sessionMapper.selectList(
+                new LambdaQueryWrapper<InterviewSession>()
                         .eq(InterviewSession::getUserId, userId)
-                        .orderByDesc(InterviewSession::getCreatedAt))
-                .stream()
-                .map(session -> {
-                    JobTemplate job = jobTemplateMapper.selectById(session.getJobTemplateId());
-                    return toView(session, job == null ? "未知岗位" : job.getTitle(), List.of());
-                })
+                        .orderByDesc(InterviewSession::getCreatedAt));
+        if (sessions.isEmpty()) {
+            return List.of();
+        }
+        Set<Long> jobIds = sessions.stream()
+                .map(InterviewSession::getJobTemplateId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, String> jobTitles = jobIds.isEmpty() ? Map.of()
+                : jobTemplateMapper.selectBatchIds(jobIds).stream()
+                        .collect(Collectors.toMap(JobTemplate::getId, JobTemplate::getTitle, (first, second) -> first));
+        return sessions.stream()
+                .map(session -> toView(session,
+                        jobTitles.getOrDefault(session.getJobTemplateId(), "未知岗位"), List.of()))
                 .toList();
     }
 

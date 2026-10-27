@@ -146,18 +146,32 @@ public class InterviewReportService {
     }
 
     public List<InterviewHistoryItem> history(Long userId) {
-        return sessionMapper.selectList(new LambdaQueryWrapper<InterviewSession>()
+        List<InterviewSession> sessions = sessionMapper.selectList(
+                new LambdaQueryWrapper<InterviewSession>()
                         .eq(InterviewSession::getUserId, userId)
-                        .orderByDesc(InterviewSession::getCreatedAt))
+                        .orderByDesc(InterviewSession::getCreatedAt));
+        if (sessions.isEmpty()) {
+            return List.of();
+        }
+        Set<Long> jobIds = sessions.stream()
+                .map(InterviewSession::getJobTemplateId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, String> jobTitles = jobIds.isEmpty() ? Map.of()
+                : jobTemplateMapper.selectBatchIds(jobIds).stream()
+                        .collect(Collectors.toMap(JobTemplate::getId, JobTemplate::getTitle, (first, second) -> first));
+        List<Long> sessionIds = sessions.stream().map(InterviewSession::getId).toList();
+        Map<Long, InterviewReport> reports = reportMapper.selectList(
+                        new LambdaQueryWrapper<InterviewReport>()
+                                .in(InterviewReport::getSessionId, sessionIds))
                 .stream()
+                .collect(Collectors.toMap(InterviewReport::getSessionId, report -> report, (first, second) -> first));
+        return sessions.stream()
                 .map(session -> {
-                    JobTemplate job = jobTemplateMapper.selectById(session.getJobTemplateId());
-                    InterviewReport report = reportMapper.selectOne(
-                            new LambdaQueryWrapper<InterviewReport>()
-                                    .eq(InterviewReport::getSessionId, session.getId()));
+                    InterviewReport report = reports.get(session.getId());
                     return new InterviewHistoryItem(
                             session.getId(),
-                            job == null ? "未知岗位" : job.getTitle(),
+                            jobTitles.getOrDefault(session.getJobTemplateId(), "未知岗位"),
                             session.getMode(),
                             session.getStatus(),
                             session.getTotalScore(),

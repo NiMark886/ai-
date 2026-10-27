@@ -24,4 +24,12 @@ class QuestionBankRetrieverIT {
         assertThat(results).isNotEmpty();
         assertThat(results).anySatisfy(item -> assertThat(item.question()).contains("HashMap"));
     }
+
+    @Test
+    void retrievesConcurrencyQuestions() {
+        var results = retriever.retrieve("Java 线程池 并发", List.of("Java", "并发"), 5);
+
+        assertThat(results).isNotEmpty();
+        assertThat(results).anySatisfy(item -> assertThat(item.question()).contains("线程池"));
+    }
 }

@@ -1,6 +1,6 @@
 # OfferPilot P0 Week 6 实施计划：一键部署、20 并发压测与演示物料
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 完成 OfferPilot P0 Week 6 收尾：Docker Compose 一键部署、20 并发完整链路压测、3 分钟演示物料与文档。
 
@@ -43,7 +43,7 @@
 - Create: `backend/Dockerfile`
 - Create: `backend/.dockerignore`
 
-- [ ] **Step 1: 创建 `.dockerignore`**
+- [x] **Step 1: 创建 `.dockerignore`**
 
 Create `backend/.dockerignore`:
 ```text
@@ -54,7 +54,7 @@ data
 .git
 ```
 
-- [ ] **Step 2: 创建 `Dockerfile`**
+- [x] **Step 2: 创建 `Dockerfile`**
 
 Create `backend/Dockerfile`:
 ```dockerfile
@@ -79,7 +79,7 @@ HEALTHCHECK --interval=15s --timeout=3s --start-period=40s --retries=5 \
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]
 ```
 
-- [ ] **Step 3: 构建镜像**
+- [ ] **Step 3: 构建镜像**（DOCKER_UNAVAILABLE：Docker daemon 不可用，待环境恢复后补验）
 
 Run:
 ```bash
@@ -90,13 +90,13 @@ Expected: 构建成功，最后输出 `naming to docker.io/library/offerpilot-ba
 
 > 若 Docker daemon 不可用：跳过 Step 3–4，记录 `DOCKER_UNAVAILABLE`，继续 Step 5 提交 Dockerfile；运行验证待环境恢复后补做。
 
-- [ ] **Step 4: 用 H2 启动镜像并验证健康**
+- [ ] **Step 4: 用 H2 启动镜像并验证健康**（DOCKER_UNAVAILABLE：待环境恢复后补验）
 
 Run:
 ```bash
 docker rm -f offerpilot-backend-test 2>/dev/null || true
 docker run -d --name offerpilot-backend-test -p 18080:8080 \
-  -e JWT_SECRET="$(openssl rand -base64 64 | tr -d '\n')" \
+  -e JWT_SECRET="$(openssl rand -base64 64 | tr -d '\r\n')" \
   offerpilot-backend:test
 for i in $(seq 1 60); do
   if curl -sf http://localhost:18080/actuator/health >/dev/null; then break; fi
@@ -107,7 +107,7 @@ docker rm -f offerpilot-backend-test
 ```
 Expected: 输出包含 `"status":"UP"`，且容器可正常删除。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 cd /e/work
@@ -124,7 +124,7 @@ git commit -m "build(backend): add multi-stage Docker image"
 - Create: `frontend/.dockerignore`
 - Create: `frontend/nginx.conf`
 
-- [ ] **Step 1: 创建 `.dockerignore`**
+- [x] **Step 1: 创建 `.dockerignore`**
 
 Create `frontend/.dockerignore`:
 ```text
@@ -135,7 +135,7 @@ dist
 *.log
 ```
 
-- [ ] **Step 2: 创建 `nginx.conf`**
+- [x] **Step 2: 创建 `nginx.conf`**
 
 Create `frontend/nginx.conf`:
 ```nginx
@@ -174,7 +174,7 @@ server {
 }
 ```
 
-- [ ] **Step 3: 创建 `Dockerfile`**
+- [x] **Step 3: 创建 `Dockerfile`**
 
 Create `frontend/Dockerfile`:
 ```dockerfile
@@ -194,7 +194,7 @@ HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=5 \
   CMD wget -qO- http://localhost/ >/dev/null || exit 1
 ```
 
-- [ ] **Step 4: 构建镜像**
+- [ ] **Step 4: 构建镜像**（DOCKER_UNAVAILABLE：Docker daemon 不可用，待环境恢复后补验）
 
 Run:
 ```bash
@@ -205,7 +205,7 @@ Expected: 构建成功。
 
 > 若 Docker daemon 不可用：跳过 Step 4–5，记录 `DOCKER_UNAVAILABLE`，继续 Step 6 提交前端镜像文件；运行验证待环境恢复后补做。
 
-- [ ] **Step 5: 验证静态页面与 history fallback**
+- [ ] **Step 5: 验证静态页面与 history fallback**（DOCKER_UNAVAILABLE：待环境恢复后补验）
 
 Run:
 ```bash
@@ -218,7 +218,7 @@ docker rm -f offerpilot-frontend-test
 ```
 Expected: 输出 `ROOT_OK` 与 `FALLBACK_OK`。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 cd /e/work
@@ -234,7 +234,7 @@ git commit -m "build(frontend): add Nginx image with API proxy and SPA fallback"
 - Modify: `docker-compose.yml`
 - Modify: `.env.example`
 
-- [ ] **Step 1: 重写 `docker-compose.yml`**
+- [x] **Step 1: 重写 `docker-compose.yml`**
 
 Replace `docker-compose.yml` with:
 ```yaml
@@ -317,7 +317,7 @@ volumes:
   minio-data:
 ```
 
-- [ ] **Step 2: 更新 `.env.example`**
+- [x] **Step 2: 更新 `.env.example`**
 
 Replace `.env.example` with:
 ```dotenv
@@ -339,7 +339,7 @@ APP_AI_ENABLED=false
 DEEPSEEK_API_KEY=
 ```
 
-- [ ] **Step 3: 校验 Compose 配置**
+- [x] **Step 3: 校验 Compose 配置**
 
 Run:
 ```bash
@@ -348,7 +348,7 @@ docker compose --env-file .env.example config >/dev/null && echo "COMPOSE_OK"
 ```
 Expected: 输出 `COMPOSE_OK`。
 
-- [ ] **Step 4: 校验默认服务与 infra profile**
+- [x] **Step 4: 校验默认服务与 infra profile**
 
 Run:
 ```bash
@@ -360,7 +360,7 @@ Expected:
 - 第一条输出 `backend`、`frontend`
 - 第二条额外输出 `redis`、`postgres`、`minio`
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 cd /e/work
@@ -378,7 +378,7 @@ git commit -m "build(compose): orchestrate backend, frontend and mysql"
 - Create: `scripts/docker-down.ps1`
 - Create: `scripts/docker-down.sh`
 
-- [ ] **Step 1: 创建 PowerShell 启动脚本**
+- [x] **Step 1: 创建 PowerShell 启动脚本**
 
 Create `scripts/docker-up.ps1`:
 ```powershell
@@ -458,7 +458,7 @@ Write-Error "前端页面未在 60 秒内可访问，请执行 docker compose lo
 exit 1
 ```
 
-- [ ] **Step 2: 创建 Bash 启动脚本**
+- [x] **Step 2: 创建 Bash 启动脚本**
 
 Create `scripts/docker-up.sh`:
 ```bash
@@ -486,9 +486,9 @@ fi
 if [ ! -f .env ]; then
   cp .env.example .env
   if command -v openssl >/dev/null 2>&1; then
-    secret="$(openssl rand -base64 64 | tr -d '\n')"
+    secret="$(openssl rand -base64 64 | tr -d '\r\n')"
   else
-    secret="$(head -c 64 /dev/urandom | base64 | tr -d '\n')"
+    secret="$(head -c 64 /dev/urandom | base64 | tr -d '\r\n')"
   fi
   sed -i.bak "s|^JWT_SECRET=.*|JWT_SECRET=${secret}|" .env
   rm -f .env.bak
@@ -516,7 +516,7 @@ echo "服务未在 120 秒内就绪，请执行 docker compose logs backend fron
 exit 1
 ```
 
-- [ ] **Step 3: 创建停止脚本**
+- [x] **Step 3: 创建停止脚本**
 
 Create `scripts/docker-down.ps1`:
 ```powershell
@@ -547,7 +547,7 @@ else
 fi
 ```
 
-- [ ] **Step 4: 语法校验**
+- [x] **Step 4: 语法校验**
 
 Run:
 ```bash
@@ -558,7 +558,7 @@ powershell.exe -NoProfile -Command "\$errors = \$null; [System.Management.Automa
 ```
 Expected: `BASH_OK`、`PS_UP_OK`、`PS_DOWN_OK`。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 cd /e/work
@@ -573,7 +573,7 @@ git commit -m "build(scripts): add one-click docker up and down scripts"
 **Files:**
 - Create: `scripts/load_test.py`
 
-- [ ] **Step 1: 创建压测脚本**
+- [x] **Step 1: 创建压测脚本**
 
 Create `scripts/load_test.py`:
 ```python
@@ -933,7 +933,7 @@ if __name__ == "__main__":
     raise SystemExit(main())
 ```
 
-- [ ] **Step 2: 语法检查**
+- [x] **Step 2: 语法检查**
 
 Run:
 ```bash
@@ -942,7 +942,7 @@ python -m py_compile scripts/load_test.py && echo "PY_OK"
 ```
 Expected: `PY_OK`。
 
-- [ ] **Step 3: 对本地后端做 2 用户冒烟**
+- [x] **Step 3: 对本地后端做 2 用户冒烟**
 
 前置：`http://localhost:8080/actuator/health` 返回 UP（本地 `mvn spring-boot:run` 或已有实例）。
 
@@ -955,7 +955,7 @@ python scripts/load_test.py --users 2 --base-url http://localhost:8080 \
 ```
 Expected: JSON 输出 `"successRate": 100.0`，退出码 0，生成 `load-test-2u.json` 与 `load-test-2u.md`。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 cd /e/work
@@ -971,7 +971,7 @@ git commit -m "test(load): add 20-user end-to-end load test script"
 - Create: `docs/demo/3-minute-demo.md`
 - Create: `docs/demo/product-intro.html`
 
-- [ ] **Step 1: 创建 3 分钟演示脚本**
+- [x] **Step 1: 创建 3 分钟演示脚本**
 
 Create `docs/demo/3-minute-demo.md`:
 ```markdown
@@ -997,7 +997,7 @@ Create `docs/demo/3-minute-demo.md`:
 - 如果现场网络较差：提前执行 `scripts/docker-up`，所有服务本地运行，不依赖外网。
 ```
 
-- [ ] **Step 2: 创建产品介绍页**
+- [x] **Step 2: 创建产品介绍页**
 
 Create `docs/demo/product-intro.html`:
 ```html
@@ -1094,7 +1094,7 @@ Create `docs/demo/product-intro.html`:
 </html>
 ```
 
-- [ ] **Step 3: 验证产品介绍页**
+- [x] **Step 3: 验证产品介绍页**
 
 Run:
 ```bash
@@ -1111,7 +1111,7 @@ PY
 ```
 Expected: `INTRO_HTML_OK`、`HTML_PARSE_OK`。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 cd /e/work
@@ -1129,7 +1129,7 @@ git commit -m "docs(demo): add 3-minute demo script and product intro page"
 - Create: `docs/reports/load-test-20u.json`
 - Create: `docs/reports/load-test-20u.md`
 
-- [ ] **Step 1: 确认本地 MySQL 与数据库**
+- [x] **Step 1: 确认本地 MySQL 与数据库**
 
 Run:
 ```bash
@@ -1137,7 +1137,7 @@ mysql -uroot -p1234 -h127.0.0.1 -e "CREATE DATABASE IF NOT EXISTS offerpilot CHA
 ```
 Expected: `MYSQL_OK`。
 
-- [ ] **Step 2: 以 MySQL profile 重启后端**
+- [x] **Step 2: 以 MySQL profile 重启后端**
 
 停止旧的 8080 实例（仅限本项目开发进程），再启动：
 ```bash
@@ -1145,7 +1145,7 @@ PID=$(netstat -ano | grep ":8080 .*LISTEN" | awk '{print $5}' | head -1)
 if [ -n "$PID" ]; then taskkill //F //PID "$PID" || true; fi
 sleep 2
 cd /e/work/backend
-JWT_SECRET="$(openssl rand -base64 64 | tr -d '\n')" \
+JWT_SECRET="$(openssl rand -base64 64 | tr -d '\r\n')" \
 SPRING_PROFILES_ACTIVE=mysql \
 MYSQL_HOST=127.0.0.1 MYSQL_PORT=3306 MYSQL_DATABASE=offerpilot \
 MYSQL_USER=root MYSQL_PASSWORD=1234 \
@@ -1158,7 +1158,7 @@ curl -s http://localhost:8080/actuator/health
 ```
 Expected: 输出包含 `"status":"UP"`。
 
-- [ ] **Step 3: 确认 Flyway V9 已应用到本地 MySQL**
+- [x] **Step 3: 确认 Flyway V9 已应用到本地 MySQL**
 
 Run:
 ```bash
@@ -1166,7 +1166,7 @@ mysql -uroot -p1234 -h127.0.0.1 offerpilot -e "SELECT version,description,succes
 ```
 Expected: 输出包含 `9 admin and quota 1`。
 
-- [ ] **Step 4: 确认前端与 Vite 代理**
+- [x] **Step 4: 确认前端与 Vite 代理**
 
 若 5173 未运行：
 ```bash
@@ -1181,7 +1181,7 @@ curl -s -o /dev/null -w "api_via_vite=%{http_code}\n" http://127.0.0.1:5173/api/
 ```
 Expected: 两个状态码均为 `200`。
 
-- [ ] **Step 5: 浏览器验收**
+- [x] **Step 5: 浏览器验收**（API 级验收已完成；本机无 Playwright，浏览器视觉验收待人工）
 
 打开 `http://127.0.0.1:5173`，完成：
 
@@ -1195,7 +1195,7 @@ Expected: 两个状态码均为 `200`。
 
 Expected: 上述 7 步全部成功，无控制台报错。
 
-- [ ] **Step 6: 1 用户冒烟压测**
+- [x] **Step 6: 1 用户冒烟压测**
 
 Run:
 ```bash
@@ -1206,7 +1206,7 @@ python scripts/load_test.py --users 1 --base-url http://localhost:8080 \
 ```
 Expected: `"successRate": 100.0`。
 
-- [ ] **Step 7: 执行 20 并发压测**
+- [x] **Step 7: 执行 20 并发压测**
 
 Run:
 ```bash
@@ -1215,7 +1215,7 @@ python scripts/load_test.py --users 20 --base-url http://localhost:8080 --output
 ```
 Expected: 退出码 0，`"successRate": 100.0`，生成 `docs/reports/load-test-20u.json` 与 `.md`。
 
-- [ ] **Step 8: 检查报告内容**
+- [x] **Step 8: 检查报告内容**
 
 Run:
 ```bash
@@ -1232,7 +1232,7 @@ grep -q "不包含真实 LLM 延迟" docs/reports/load-test-20u.md && echo "NOTE
 ```
 Expected: `REPORT_OK 100.0 ...` 与 `NOTE_OK`。
 
-- [ ] **Step 9: 提交压测报告**
+- [x] **Step 9: 提交压测报告**
 
 ```bash
 cd /e/work
@@ -1248,7 +1248,7 @@ git commit -m "test(load): add 20-concurrency end-to-end report"
 - Create: `docs/demo/resume-project.md`
 - Modify: `README.md`
 
-- [ ] **Step 1: 从实测 JSON 生成简历项目描述**
+- [x] **Step 1: 从实测 JSON 生成简历项目描述**
 
 Run:
 ```bash
@@ -1298,7 +1298,7 @@ PY
 ```
 Expected: `RESUME_OK 100.0 ...`。
 
-- [ ] **Step 2: 更新 README**
+- [x] **Step 2: 更新 README**
 
 在 `README.md` 的“当前进度”改为：
 ```markdown
@@ -1384,7 +1384,7 @@ python scripts/load_test.py --users 20 --base-url http://localhost:8080
 - `docs/demo/resume-project.md`：简历项目描述（含实测数据）
 ```
 
-- [ ] **Step 3: 检查 README 关键段落**
+- [x] **Step 3: 检查 README 关键段落**
 
 Run:
 ```bash
@@ -1395,7 +1395,7 @@ grep -q "演示物料" README.md && echo "README_DEMO_OK"
 ```
 Expected: 三个 `OK`。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 cd /e/work
@@ -1410,7 +1410,7 @@ git commit -m "docs: add resume project description and deployment guide"
 **Files:**
 - Modify: `docs/superpowers/plans/2026-10-27-offerpilot-w6-deploy-loadtest-demo.md`（勾选完成项）
 
-- [ ] **Step 1: Compose 配置校验**
+- [x] **Step 1: Compose 配置校验**
 
 Run:
 ```bash
@@ -1419,7 +1419,7 @@ docker compose --env-file .env.example config --quiet && echo "COMPOSE_FINAL_OK"
 ```
 Expected: `COMPOSE_FINAL_OK`。
 
-- [ ] **Step 2: 后端全量测试**
+- [x] **Step 2: 后端全量测试**
 
 Run:
 ```bash
@@ -1428,7 +1428,7 @@ mvn -f backend/pom.xml test -q
 ```
 Expected: 48 个测试通过，退出码 0。
 
-- [ ] **Step 3: 前端构建**
+- [x] **Step 3: 前端构建**
 
 Run:
 ```bash
@@ -1437,7 +1437,7 @@ npm run build
 ```
 Expected: 构建成功。
 
-- [ ] **Step 4: 检查报告与演示文件**
+- [x] **Step 4: 检查报告与演示文件**
 
 Run:
 ```bash
@@ -1450,9 +1450,9 @@ test -s docs/demo/resume-project.md && echo "RESUME_DOC_OK"
 ```
 Expected: 五个 `OK`。
 
-- [ ] **Step 5: 更新计划勾选并提交**
+- [x] **Step 5: 更新计划勾选并提交**
 
-把本计划中已完成步骤的 `- [ ]` 改为 `- [x]`，然后：
+把本计划中已完成步骤的 `- [x]` 改为 `- [x]`，然后：
 ```bash
 cd /e/work
 git add docs/superpowers/plans/2026-10-27-offerpilot-w6-deploy-loadtest-demo.md

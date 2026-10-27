@@ -17,6 +17,12 @@
 
 前置条件：本机 MySQL 已启动，存在 `offerpilot` 数据库，账号默认 `root/1234`。
 
+`mysql` profile 必须提供 `JWT_SECRET`（base64 编码的 64 字节）。本地开发可先生成：
+
+```bash
+export JWT_SECRET="$(openssl rand -base64 64 | tr -d '\n')"
+```
+
 后端：
 
 ```bash
@@ -89,14 +95,18 @@ mvn spring-boot:run
 
 ```bash
 docker compose up -d mysql
+export JWT_SECRET="$(openssl rand -base64 64 | tr -d '\n')"
 cd backend
 SPRING_PROFILES_ACTIVE=mysql mvn spring-boot:run
 ```
 
 PowerShell:
 ```powershell
+$env:JWT_SECRET = [Convert]::ToBase64String((1..64 | ForEach-Object { Get-Random -Maximum 256 }))
 $env:SPRING_PROFILES_ACTIVE="mysql"; mvn spring-boot:run
 ```
+
+> `local` / `test` profile 内置开发用默认密钥；`mysql` profile 不提供默认值，未设置 `JWT_SECRET` 会启动失败。
 
 ### 前端
 

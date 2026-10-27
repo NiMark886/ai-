@@ -41,8 +41,8 @@ const canSend = computed(() =>
 
 onMounted(load)
 
-async function load() {
-  loading.value = true
+async function load(options: { silent?: boolean } = {}) {
+  if (!options.silent) loading.value = true
   try {
     const id = Number(route.params.id)
     session.value = await interviewApi.get(id)
@@ -54,7 +54,7 @@ async function load() {
   } catch {
     router.replace('/')
   } finally {
-    loading.value = false
+    if (!options.silent) loading.value = false
   }
 }
 
@@ -112,25 +112,25 @@ async function send() {
         }
         sending.value = false
         streamingMessageId.value = null
-        await load()
+        await load({ silent: true })
       },
       onError: async (message) => {
         ElMessage.error(message)
         sending.value = false
         streamingMessageId.value = null
-        await load()
+        await load({ silent: true })
       }
     })
     if (sending.value) {
       sending.value = false
       streamingMessageId.value = null
-      await load()
+      await load({ silent: true })
     }
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '提交回答失败')
     sending.value = false
     streamingMessageId.value = null
-    await load()
+    await load({ silent: true })
   }
 }
 
@@ -139,7 +139,7 @@ async function handleHint() {
   try {
     const result = await interviewApi.hint(session.value.id)
     ElMessage.success(`提示：${result.hint}`)
-    await load()
+    await load({ silent: true })
   } catch {
     // 拦截器已提示
   }
@@ -149,7 +149,7 @@ async function handleSkip() {
   if (!session.value) return
   try {
     await interviewApi.skip(session.value.id)
-    await load()
+    await load({ silent: true })
   } catch {
     // 拦截器已提示
   }
@@ -164,7 +164,7 @@ async function handleFinish() {
       cancelButtonText: '继续面试'
     })
     await interviewApi.finish(session.value.id)
-    await load()
+    await load({ silent: true })
   } catch {
     // 用户取消或接口失败
   }
@@ -237,8 +237,8 @@ function backToPreview() {
               结束面试
             </el-button>
           </div>
-          <el-button type="primary" :loading="sending" :disabled="!canSend" @click="send">
-            发送
+          <el-button type="primary" :disabled="!canSend" @click="send">
+            {{ sending ? '面试官思考中…' : '发送' }}
           </el-button>
         </div>
       </section>

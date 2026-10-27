@@ -2366,4 +2366,5 @@ Expected: 工作区干净。
   - `InterviewConversationService` 内部消息历史使用 `history(sessionId)`，避免与对外 `messages(userId, sessionId)` 混淆。
   - `SecurityConfig` 增加 `DispatcherType.ASYNC` / `ERROR` 放行，解决 MockMvc SSE 异步派发被 Spring Security 拦截的问题。
   - 前端 SSE 客户端使用 `fetch + ReadableStream`，解析 `meta/delta/done/error` 事件；流结束缺少 `done` 时有兜底刷新。
+  - 作答体验优化：聊天页仅首次加载显示全屏 loading；回答/提示/跳过/结束后的数据刷新改为静默刷新，避免回复后出现转圈；发送按钮不再使用 loading spinner，改为“面试官思考中…”文案，配合面试官气泡内的“AI 正在思考…”提示。
 - 尚未推送：W3 分支提交在本地；W2 的 PR #2 仍未合并。

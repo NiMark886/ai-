@@ -1,0 +1,211 @@
+package com.offerpilot.ai.provider.service;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.offerpilot.ai.provider.domain.AiProvider;
+import com.offerpilot.ai.provider.mapper.AiProviderMapper;
+import com.offerpilot.ai.provider.web.dto.AiProviderPreset;
+import com.offerpilot.ai.provider.web.dto.AiProviderRequest;
+import com.offerpilot.ai.provider.web.dto.AiProviderView;
+import com.offerpilot.common.exception.BusinessException;
+import com.offerpilot.common.exception.ErrorCode;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
+
+@Service
+public class AiProviderService {
+
+    private final AiProviderMapper providerMapper;
+    private final ApiKeyCipher apiKeyCipher;
+
+    public AiProviderService(AiProviderMapper providerMapper, ApiKeyCipher apiKeyCipher) {
+        this.providerMapper = providerMapper;
+        this.apiKeyCipher = apiKeyCipher;
+    }
+
+    public List<AiProviderView> list(Long userId) {
+        return providerMapper.selectList(new LambdaQueryWrapper<AiProvider>()
+                        .eq(AiProvider::getUserId, userId)
+                        .orderByDesc(AiProvider::getActive)
+                        .orderByDesc(AiProvider::getUpdatedAt))
+                .stream()
+                .map(AiProviderView::from)
+                .toList();
+    }
+
+    public List<AiProviderPreset> presets() {
+        return Arrays.stream(AiProviderType.values())
+                .map(AiProviderPreset::from)
+                .toList();
+    }
+
+    @Transactional
+    public AiProviderView create(Long userId, AiProviderRequest request) {
+        String name = request.name().trim();
+        validateName(userId, name, null);
+
+        AiProviderType type = AiProviderType.from(request.providerType());
+        String baseUrl = resolveBaseUrl(type, request.baseUrl());
+        String model = resolveModel(type, request.model());
+        String apiKey = request.apiKey() == null ? "" : request.apiKey().trim();
+        if (apiKey.isBlank()) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "API Key 不能为空");
+        }
+
+        AiProvider provider = new AiProvider();
+        provider.setUserId(userId);
+        provider.setName(name);
+        provider.setProviderType(type.name());
+        provider.setBaseUrl(baseUrl);
+        provider.setModel(model);
+        provider.setApiKeyCipher(apiKeyCipher.encrypt(apiKey));
+        provider.setApiKeyHint(apiKeyCipher.mask(apiKey));
+        provider.setTemperature(resolveTemperature(request.temperature()));
+        provider.setEnabled(request.enabled() == null || request.enabled() ? 1 : 0);
+        provider.setActive(providerMapper.selectCount(new LambdaQueryWrapper<AiProvider>()
+                .eq(AiProvider::getUserId, userId)) == 0 ? 1 : 0);
+        providerMapper.insert(provider);
+        return AiProviderView.from(provider);
+    }
+
+    @Transactional
+    public AiProviderView update(Long userId, Long id, AiProviderRequest request) {
+        AiProvider provider = getOwned(userId, id);
+        String name = request.name().trim();
+        validateName(userId, name, id);
+
+        AiProviderType type = AiProviderType.from(request.providerType());
+        provider.setName(name);
+        provider.setProviderType(type.name());
+        provider.setBaseUrl(resolveBaseUrl(type, request.baseUrl()));
+        provider.setModel(resolveModel(type, request.model()));
+        String apiKey = request.apiKey() == null ? "" : request.apiKey().trim();
+        if (!apiKey.isBlank()) {
+            provider.setApiKeyCipher(apiKeyCipher.encrypt(apiKey));
+            provider.setApiKeyHint(apiKeyCipher.mask(apiKey));
+        }
+        provider.setTemperature(resolveTemperature(request.temperature()));
+        if (request.enabled() != null) {
+            provider.setEnabled(request.enabled() ? 1 : 0);
+        }
+        providerMapper.updateById(provider);
+
+        if (provider.getActive() == null || provider.getActive() == 0) {
+            ensureActive(userId);
+        }
+        return AiProviderView.from(providerMapper.selectById(id));
+    }
+
+    @Transactional
+    public void delete(Long userId, Long id) {
+        AiProvider provider = getOwned(userId, id);
+        boolean wasActive = provider.getActive() != null && provider.getActive() == 1;
+        providerMapper.deleteById(id);
+        if (wasActive) {
+            AiProvider next = providerMapper.selectOne(new LambdaQueryWrapper<AiProvider>()
+                    .eq(AiProvider::getUserId, userId)
+                    .orderByDesc(AiProvider::getUpdatedAt)
+                    .last("LIMIT 1"));
+            if (next != null) {
+                next.setActive(1);
+                next.setEnabled(1);
+                providerMapper.updateById(next);
+            }
+        }
+    }
+
+    @Transactional
+    public AiProviderView activate(Long userId, Long id) {
+        AiProvider provider = getOwned(userId, id);
+        providerMapper.update(null, new LambdaUpdateWrapper<AiProvider>()
+                .eq(AiProvider::getUserId, userId)
+                .set(AiProvider::getActive, 0));
+        provider.setActive(1);
+        provider.setEnabled(1);
+        providerMapper.updateById(provider);
+        return AiProviderView.from(provider);
+    }
+
+    public AiProvider activeForUser(Long userId) {
+        if (userId == null) {
+            return null;
+        }
+        return providerMapper.selectOne(new LambdaQueryWrapper<AiProvider>()
+                .eq(AiProvider::getUserId, userId)
+                .eq(AiProvider::getActive, 1)
+                .eq(AiProvider::getEnabled, 1)
+                .last("LIMIT 1"));
+    }
+
+    public AiProvider getOwned(Long userId, Long id) {
+        AiProvider provider = providerMapper.selectById(id);
+        if (provider == null || !Objects.equals(provider.getUserId(), userId)) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "API 配置不存在");
+        }
+        return provider;
+    }
+
+    private void ensureActive(Long userId) {
+        AiProvider active = activeForUser(userId);
+        if (active != null) {
+            return;
+        }
+        AiProvider first = providerMapper.selectOne(new LambdaQueryWrapper<AiProvider>()
+                .eq(AiProvider::getUserId, userId)
+                .orderByDesc(AiProvider::getUpdatedAt)
+                .last("LIMIT 1"));
+        if (first != null) {
+            first.setActive(1);
+            first.setEnabled(1);
+            providerMapper.updateById(first);
+        }
+    }
+
+    private void validateName(Long userId, String name, Long excludeId) {
+        LambdaQueryWrapper<AiProvider> wrapper = new LambdaQueryWrapper<AiProvider>()
+                .eq(AiProvider::getUserId, userId)
+                .eq(AiProvider::getName, name);
+        if (excludeId != null) {
+            wrapper.ne(AiProvider::getId, excludeId);
+        }
+        if (providerMapper.selectCount(wrapper) > 0) {
+            throw new BusinessException(ErrorCode.CONFLICT, "配置名称已存在");
+        }
+    }
+
+    private String resolveBaseUrl(AiProviderType type, String baseUrl) {
+        String value = baseUrl == null ? "" : baseUrl.trim();
+        if (value.isBlank()) {
+            value = type.defaultBaseUrl();
+        }
+        if (value.isBlank()) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Base URL 不能为空");
+        }
+        while (value.endsWith("/")) {
+            value = value.substring(0, value.length() - 1);
+        }
+        return value;
+    }
+
+    private String resolveModel(AiProviderType type, String model) {
+        String value = model == null ? "" : model.trim();
+        if (value.isBlank()) {
+            value = type.defaultModel();
+        }
+        if (value.isBlank()) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "模型名称不能为空");
+        }
+        return value;
+    }
+
+    private double resolveTemperature(Double temperature) {
+        if (temperature == null) {
+            return 0.4;
+        }
+        return Math.max(0.0, Math.min(2.0, temperature));
+    }
+}

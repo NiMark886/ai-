@@ -106,7 +106,13 @@ async function submit() {
 </script>
 
 <template>
-  <el-dialog v-model="visible" width="640px" :close-on-click-modal="false">
+  <el-dialog
+    v-model="visible"
+    width="640px"
+    :close-on-click-modal="false"
+    :close-on-press-escape="!submitting"
+    :show-close="!submitting"
+  >
     <template #header>
       <div class="dialog-header">
         <span>创建模拟面试</span>
@@ -207,12 +213,20 @@ async function submit() {
           <el-radio-button value="PRESSURE">压力面</el-radio-button>
         </el-radio-group>
       </section>
+
+      <el-alert
+        v-if="submitting"
+        title="AI 正在生成蓝图，约 10–30 秒，请勿关闭"
+        type="info"
+        :closable="false"
+        show-icon
+      />
     </div>
 
     <template #footer>
-      <el-button @click="visible = false">取消</el-button>
+      <el-button :disabled="submitting" @click="visible = false">取消</el-button>
       <el-button type="primary" :loading="submitting" @click="submit">
-        生成面试蓝图
+        {{ submitting ? 'AI 生成中…' : '生成面试蓝图' }}
       </el-button>
     </template>
   </el-dialog>

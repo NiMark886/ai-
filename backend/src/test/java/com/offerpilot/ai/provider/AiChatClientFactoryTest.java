@@ -10,6 +10,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -55,7 +56,7 @@ class AiChatClientFactoryTest {
             provider.setTemperature(0.4);
             provider.setApiKeyCipher(cipher.encrypt("sk-test"));
 
-            ChatClient chatClient = factory.build(provider);
+            ChatClient chatClient = factory.build(provider, Duration.ofSeconds(5));
             String content = chatClient.prompt().user("hi").call().content();
 
             assertThat(content).isEqualTo("OK");

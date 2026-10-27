@@ -59,6 +59,7 @@ app:
   ai:
     enabled: ${APP_AI_ENABLED:false}
     allow-private-base-url: ${AI_ALLOW_PRIVATE_BASE_URL:false}
+    blueprint-timeout: ${AI_BLUEPRINT_TIMEOUT:PT25S}
   quota:
     enforce: ${APP_QUOTA_ENFORCE:false}
     free-daily-sessions: 3

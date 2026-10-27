@@ -47,7 +47,7 @@ class ChatClientProviderTest {
         AiProvider userProvider = new AiProvider();
         userProvider.setId(1L);
         when(providerService.activeForUser(42L)).thenReturn(userProvider);
-        when(factory.build(userProvider)).thenReturn(userClient);
+        when(factory.build(userProvider, null)).thenReturn(userClient);
 
         assertThat(provider.get()).isSameAs(userClient);
     }
@@ -58,6 +58,31 @@ class ChatClientProviderTest {
         ChatClientProvider provider = new ChatClientProvider(builder, providerService, factory);
 
         assertThat(provider.get()).isSameAs(defaultClient);
+        assertThat(provider.supportsJsonMode()).isTrue();
+    }
+
+    @Test
+    void enablesJsonModeForDeepSeekProvider() {
+        when(builder.build()).thenReturn(defaultClient);
+        ChatClientProvider provider = new ChatClientProvider(builder, providerService, factory);
+        authenticateAs(42L);
+        AiProvider deepSeek = new AiProvider();
+        deepSeek.setProviderType("DEEPSEEK");
+        when(providerService.activeForUser(42L)).thenReturn(deepSeek);
+
+        assertThat(provider.supportsJsonMode()).isTrue();
+    }
+
+    @Test
+    void disablesJsonModeForMimoProvider() {
+        when(builder.build()).thenReturn(defaultClient);
+        ChatClientProvider provider = new ChatClientProvider(builder, providerService, factory);
+        authenticateAs(42L);
+        AiProvider mimo = new AiProvider();
+        mimo.setProviderType("MIMO");
+        when(providerService.activeForUser(42L)).thenReturn(mimo);
+
+        assertThat(provider.supportsJsonMode()).isFalse();
     }
 
     private void authenticateAs(Long userId) {

@@ -205,7 +205,7 @@ export interface StreamHandlers {
 
 export const interviewApi = {
   create: (data: CreateInterviewRequest) =>
-    http.post<never, InterviewSession>('/interviews', data),
+    http.post<never, InterviewSession>('/interviews', data, { timeout: 60000 }),
 
   get: (id: number) => http.get<never, InterviewSession>(`/interviews/${id}`),
 

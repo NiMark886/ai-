@@ -6,12 +6,18 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.openai.api.OpenAiApi;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClient;
+
+import java.time.Duration;
 
 @Component
 public class AiChatClientFactory {
 
     private static final String COMPLETIONS_PATH = "/v1/chat/completions";
+    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
+    private static final Duration DEFAULT_READ_TIMEOUT = Duration.ofSeconds(60);
 
     private final ApiKeyCipher apiKeyCipher;
 
@@ -20,13 +26,22 @@ public class AiChatClientFactory {
     }
 
     public ChatClient build(AiProvider provider) {
+        return build(provider, DEFAULT_READ_TIMEOUT);
+    }
+
+    public ChatClient build(AiProvider provider, Duration readTimeout) {
         String baseUrl = normalizeBaseUrl(provider.getBaseUrl());
         String apiKey = apiKeyCipher.decrypt(provider.getApiKeyCipher());
+
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(CONNECT_TIMEOUT);
+        requestFactory.setReadTimeout(readTimeout == null ? DEFAULT_READ_TIMEOUT : readTimeout);
 
         OpenAiApi openAiApi = OpenAiApi.builder()
                 .baseUrl(baseUrl)
                 .apiKey(apiKey)
                 .completionsPath(COMPLETIONS_PATH)
+                .restClientBuilder(RestClient.builder().requestFactory(requestFactory))
                 .build();
 
         OpenAiChatOptions options = OpenAiChatOptions.builder()

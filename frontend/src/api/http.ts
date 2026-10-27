@@ -126,7 +126,13 @@ http.interceptors.response.use(
     }
 
     const message = error.response?.data?.message
-    ElMessage.error(message || '网络异常，请稍后重试')
+    const isTimeout = error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT'
+    ElMessage.error(
+      message ||
+        (isTimeout
+          ? '请求超时，AI 可能仍在后台生成，请稍后刷新面试列表'
+          : '网络异常，请稍后重试')
+    )
     return Promise.reject(error)
   }
 )

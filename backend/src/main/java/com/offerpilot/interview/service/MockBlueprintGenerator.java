@@ -6,6 +6,7 @@ import com.offerpilot.interview.domain.BlueprintQuestion;
 import com.offerpilot.interview.domain.BlueprintRequest;
 import com.offerpilot.interview.domain.BlueprintSection;
 import com.offerpilot.interview.domain.InterviewBlueprint;
+import com.offerpilot.questionbank.web.dto.QuestionBankItem;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -40,7 +41,7 @@ public class MockBlueprintGenerator implements InterviewBlueprintGenerator {
             aiCount++;
         }
 
-        List<BlueprintQuestion> basic = basicQuestions(category);
+        List<BlueprintQuestion> basic = basicQuestions(category, request.retrievedQuestions());
         List<BlueprintQuestion> project = projectQuestions(request.resumeProfile());
         List<BlueprintQuestion> scenario = scenarioQuestions(category);
         List<BlueprintQuestion> ai = aiQuestions();
@@ -91,9 +92,10 @@ public class MockBlueprintGenerator implements InterviewBlueprintGenerator {
         return result;
     }
 
-    private List<BlueprintQuestion> basicQuestions(String category) {
+    private List<BlueprintQuestion> basicQuestions(String category, List<QuestionBankItem> retrieved) {
+        List<BlueprintQuestion> result = new ArrayList<>(bankQuestions(retrieved));
         if (category.contains("AI")) {
-            return List.of(
+            result.addAll(List.of(
                     question("请说明 RAG 的完整流程，以及每个阶段常见的失败点。", 2,
                             List.of("RAG", "检索"), List.of("文档切分", "Embedding", "召回", "重排", "生成"),
                             List.of("召回率低时你会怎么优化？")),
@@ -106,10 +108,11 @@ public class MockBlueprintGenerator implements InterviewBlueprintGenerator {
                     question("如何评估一个 LLM 应用的效果？", 3,
                             List.of("评估"), List.of("离线评测", "人工评估", "线上指标", "A/B 测试"),
                             List.of("没有标注数据时怎么办？"))
-            );
+            ));
+            return dedupe(result);
         }
         if (category.contains("微服务")) {
-            return List.of(
+            result.addAll(List.of(
                     question("Nacos 的服务注册与发现流程是怎样的？", 2,
                             List.of("Nacos"), List.of("注册", "心跳", "健康检查", "本地缓存"),
                             List.of("Nacos 挂了服务还能调用吗？")),
@@ -122,9 +125,10 @@ public class MockBlueprintGenerator implements InterviewBlueprintGenerator {
                     question("分布式事务有哪些常见方案？", 3,
                             List.of("分布式事务"), List.of("2PC", "TCC", "Saga", "本地消息表"),
                             List.of("你项目中用了哪种？为什么？"))
-            );
+            ));
+            return dedupe(result);
         }
-        return List.of(
+        result.addAll(List.of(
                 question("HashMap 在 JDK 8 中的扩容机制是怎样的？", 2,
                         List.of("集合", "HashMap"), List.of("数组+链表+红黑树", "扩容 2 倍", "链表转红黑树阈值 8"),
                         List.of("扩容后元素如何重新分布？")),
@@ -137,7 +141,28 @@ public class MockBlueprintGenerator implements InterviewBlueprintGenerator {
                 question("MySQL 索引失效的常见场景有哪些？", 2,
                         List.of("MySQL", "索引"), List.of("最左前缀", "函数运算", "隐式转换", "范围查询"),
                         List.of("如何用 EXPLAIN 分析？"))
-        );
+        ));
+        return dedupe(result);
+    }
+
+    private List<BlueprintQuestion> bankQuestions(List<QuestionBankItem> retrieved) {
+        if (retrieved == null) {
+            return List.of();
+        }
+        return retrieved.stream()
+                .map(item -> question(item.question(), item.difficulty(),
+                        item.tags().stream().limit(3).toList(),
+                        List.of(item.referenceAnswer()),
+                        List.of("能再展开讲讲这道题的边界条件吗？")))
+                .toList();
+    }
+
+    private List<BlueprintQuestion> dedupe(List<BlueprintQuestion> questions) {
+        Map<String, BlueprintQuestion> map = new LinkedHashMap<>();
+        for (BlueprintQuestion question : questions) {
+            map.putIfAbsent(question.text(), question);
+        }
+        return new ArrayList<>(map.values());
     }
 
     private List<BlueprintQuestion> projectQuestions(com.offerpilot.resume.domain.ResumeProfile profile) {

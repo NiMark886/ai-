@@ -139,7 +139,7 @@ class InterviewConversationControllerIT {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.length()").value(2))
                 .andExpect(jsonPath("$.data[1].promptType").value("FOLLOW_UP"))
-                .andExpect(jsonPath("$.data[1].promptText").value(org.hamcrest.Matchers.containsString("扩容后元素如何重新分布")));
+                .andExpect(jsonPath("$.data[1].promptText").value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.emptyString())));
     }
 
     private String registerAndToken() throws Exception {

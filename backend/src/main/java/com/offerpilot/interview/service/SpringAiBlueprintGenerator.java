@@ -52,6 +52,7 @@ public class SpringAiBlueprintGenerator implements InterviewBlueprintGenerator {
                             时长：%d 分钟
                             面试官风格：%s
                             题目总数：%d
+                            参考题库：%s
                             """.formatted(
                             request.jobTemplate().getTitle(),
                             request.jobTemplate().getJdText(),
@@ -59,7 +60,8 @@ public class SpringAiBlueprintGenerator implements InterviewBlueprintGenerator {
                             request.difficulty(),
                             request.durationMinutes(),
                             request.persona(),
-                            count))
+                            count,
+                            request.retrievedQuestions()))
                     .call()
                     .content();
 

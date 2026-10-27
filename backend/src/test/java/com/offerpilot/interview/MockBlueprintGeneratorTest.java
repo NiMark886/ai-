@@ -30,7 +30,7 @@ class MockBlueprintGeneratorTest {
                 "某大学本科", "3 年 Java 后端经验");
 
         InterviewBlueprint blueprint = generator.generate(new BlueprintRequest(
-                job, profile, "STANDARD", 30, "STANDARD"));
+                job, profile, "STANDARD", 30, "STANDARD", List.of()));
 
         long count = blueprint.sections().stream()
                 .mapToLong(section -> section.questions().size())

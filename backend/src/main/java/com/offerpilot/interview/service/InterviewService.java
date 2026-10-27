@@ -18,6 +18,7 @@ import com.offerpilot.interview.web.dto.InterviewSessionView;
 import com.offerpilot.interview.web.dto.QuestionView;
 import com.offerpilot.job.domain.JobTemplate;
 import com.offerpilot.job.mapper.JobTemplateMapper;
+import com.offerpilot.questionbank.service.QuestionBankRetriever;
 import com.offerpilot.resume.domain.Resume;
 import com.offerpilot.resume.domain.ResumeProfile;
 import com.offerpilot.resume.mapper.ResumeMapper;
@@ -35,6 +36,7 @@ public class InterviewService {
     private final JobTemplateMapper jobTemplateMapper;
     private final ResumeMapper resumeMapper;
     private final InterviewBlueprintGenerator blueprintGenerator;
+    private final QuestionBankRetriever questionBankRetriever;
     private final ObjectMapper objectMapper;
 
     public InterviewService(InterviewSessionMapper sessionMapper,
@@ -42,12 +44,14 @@ public class InterviewService {
                             JobTemplateMapper jobTemplateMapper,
                             ResumeMapper resumeMapper,
                             InterviewBlueprintGenerator blueprintGenerator,
+                            QuestionBankRetriever questionBankRetriever,
                             ObjectMapper objectMapper) {
         this.sessionMapper = sessionMapper;
         this.questionMapper = questionMapper;
         this.jobTemplateMapper = jobTemplateMapper;
         this.resumeMapper = resumeMapper;
         this.blueprintGenerator = blueprintGenerator;
+        this.questionBankRetriever = questionBankRetriever;
         this.objectMapper = objectMapper;
     }
 
@@ -64,8 +68,14 @@ public class InterviewService {
         }
 
         ResumeProfile profile = readProfile(resume);
+        List<String> tags = new ArrayList<>();
+        tags.add(job.getCategory());
+        if (profile != null && profile.skills() != null) {
+            tags.addAll(profile.skills());
+        }
+        var retrieved = questionBankRetriever.retrieve(job.getJdText(), tags, 8);
         InterviewBlueprint blueprint = blueprintGenerator.generate(new BlueprintRequest(
-                job, profile, request.difficulty(), request.durationMinutes(), request.persona()));
+                job, profile, request.difficulty(), request.durationMinutes(), request.persona(), retrieved));
 
         InterviewSession session = new InterviewSession();
         session.setUserId(userId);

@@ -104,7 +104,7 @@ class InterviewConversationServiceTest {
 
         assertThat(second.evaluation()).isNotNull();
         assertThat(second.evaluation().promptType()).isEqualTo("FOLLOW_UP");
-        assertThat(second.evaluation().promptText()).contains("扩容后元素如何重新分布");
+        assertThat(second.evaluation().promptText()).isEqualTo(first.replyText());
         assertThat(second.evaluation().missingPoints())
                 .doesNotContain("链表转红黑树阈值 8");
     }
@@ -136,9 +136,12 @@ class InterviewConversationServiceTest {
                 new CreateInterviewRequest(jobId, resume.getId(), "STANDARD", 30, "STANDARD", "PRACTICE"));
 
         InterviewSessionView started = conversationService.start(user.getId(), session.id());
+        var firstQuestion = started.questions().stream()
+                .filter(question -> question.id().equals(started.currentQuestionId()))
+                .findFirst().orElseThrow();
+        String answer = String.join("，", firstQuestion.referencePoints());
         AnswerResult result = conversationService.answer(user.getId(), session.id(),
-                new AnswerRequest(started.currentQuestionId(),
-                        "HashMap 底层是数组、链表和红黑树，扩容时容量翻倍"));
+                new AnswerRequest(firstQuestion.id(), answer));
 
         assertThat(result.evaluation()).isNotNull();
         assertThat(result.evaluation().correctness()).isIn("CORRECT", "PARTIAL");

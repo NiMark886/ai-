@@ -25,7 +25,8 @@ const form = reactive({
   resumeId: undefined as number | undefined,
   difficulty: 'STANDARD',
   durationMinutes: 30,
-  persona: 'STANDARD'
+  persona: 'STANDARD',
+  mode: 'INTERVIEW'
 })
 
 const visible = computed({
@@ -90,7 +91,8 @@ async function submit() {
       resumeId: form.resumeId,
       difficulty: form.difficulty,
       durationMinutes: form.durationMinutes,
-      persona: form.persona
+      persona: form.persona,
+      mode: form.mode
     })
     ElMessage.success('面试已创建')
     emit('created', session)
@@ -104,7 +106,13 @@ async function submit() {
 </script>
 
 <template>
-  <el-dialog v-model="visible" width="640px" :close-on-click-modal="false">
+  <el-dialog
+    v-model="visible"
+    width="640px"
+    :close-on-click-modal="false"
+    :close-on-press-escape="!submitting"
+    :show-close="!submitting"
+  >
     <template #header>
       <div class="dialog-header">
         <span>创建模拟面试</span>
@@ -169,6 +177,17 @@ async function submit() {
       </section>
 
       <section class="field-block">
+        <div class="field-title"><span>模式</span></div>
+        <el-radio-group v-model="form.mode">
+          <el-radio-button value="INTERVIEW">模拟面试</el-radio-button>
+          <el-radio-button value="PRACTICE">练习模式（实时点评）</el-radio-button>
+        </el-radio-group>
+        <p v-if="form.mode === 'PRACTICE'" class="mode-hint">
+          每题回答后会立即显示正确性点评，适合刷题练习。
+        </p>
+      </section>
+
+      <section class="field-block">
         <div class="field-title"><span>难度</span></div>
         <el-radio-group v-model="form.difficulty">
           <el-radio-button value="EASY">简单</el-radio-button>
@@ -194,12 +213,20 @@ async function submit() {
           <el-radio-button value="PRESSURE">压力面</el-radio-button>
         </el-radio-group>
       </section>
+
+      <el-alert
+        v-if="submitting"
+        title="AI 正在生成蓝图，约 10–30 秒，请勿关闭"
+        type="info"
+        :closable="false"
+        show-icon
+      />
     </div>
 
     <template #footer>
-      <el-button @click="visible = false">取消</el-button>
+      <el-button :disabled="submitting" @click="visible = false">取消</el-button>
       <el-button type="primary" :loading="submitting" @click="submit">
-        生成面试蓝图
+        {{ submitting ? 'AI 生成中…' : '生成面试蓝图' }}
       </el-button>
     </template>
   </el-dialog>
@@ -269,5 +296,11 @@ async function submit() {
   color: #6b7a8c;
   font-size: 13px;
   line-height: 1.6;
+}
+
+.mode-hint {
+  margin: 8px 0 0;
+  color: #8a97a8;
+  font-size: 12px;
 }
 </style>

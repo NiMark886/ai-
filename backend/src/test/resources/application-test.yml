@@ -14,6 +14,11 @@ spring:
 app:
   ai:
     enabled: false
+    allow-private-base-url: true
+  sse:
+    sync: true
+  jwt:
+    secret: ${JWT_SECRET:SrRRpFGv51wnxllAChZ6Ql1Bty5dvWIGIzbde9nqSxwIkjryZELF+htOBHGb6pX7jHjF0JHXoJUOyRtO7YsStQ==}
   storage:
     local-root: ./target/test-uploads
 

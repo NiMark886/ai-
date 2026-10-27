@@ -12,6 +12,7 @@ public record QuestionView(
         List<String> referencePoints,
         String status,
         Integer followUpCount,
+        Integer maxFollowUps,
         Integer hintCount
 ) {
 }

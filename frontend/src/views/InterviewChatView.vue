@@ -5,6 +5,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   interviewApi,
   streamAnswer,
+  type AnswerEvaluationView,
   type InterviewSession,
   type MessageView,
   type QuestionView
@@ -20,6 +21,18 @@ const sending = ref(false)
 const input = ref('')
 const streamingMessageId = ref<number | null>(null)
 const messagesEl = ref<HTMLElement | null>(null)
+const evaluations = ref<Record<number, AnswerEvaluationView>>({})
+
+const correctnessLabels: Record<string, string> = {
+  CORRECT: '正确',
+  PARTIAL: '部分正确',
+  INSUFFICIENT: '需补充',
+  INCORRECT: '不正确'
+}
+
+function correctnessLabel(value: string) {
+  return correctnessLabels[value] ?? value
+}
 
 const typeLabels: Record<string, string> = {
   BASIC: '基础',
@@ -49,7 +62,14 @@ async function load(options: { silent?: boolean } = {}) {
     if (session.value.status === 'READY') {
       session.value = await interviewApi.start(id)
     }
-    messages.value = await interviewApi.messages(id)
+    const [messageList, evaluationList] = await Promise.all([
+      interviewApi.messages(id),
+      interviewApi.evaluations(id)
+    ])
+    messages.value = messageList
+    evaluations.value = Object.fromEntries(
+      evaluationList.map((evaluation) => [evaluation.candidateMessageId, evaluation])
+    )
     await scrollToBottom()
   } catch {
     router.replace('/')
@@ -92,6 +112,8 @@ async function send() {
   try {
     await streamAnswer(id, questionId, answer, {
       onMeta: (meta) => {
+        const candidate = messages.value.find((m) => m.id === tempCandidateId)
+        if (candidate) candidate.id = meta.candidateMessageId
         const message = messages.value.find((m) => m.id === streamingMessageId.value)
         if (message) {
           message.id = meta.interviewerMessageId
@@ -104,6 +126,9 @@ async function send() {
         const message = messages.value.find((m) => m.id === streamingMessageId.value)
         if (message) message.content += text
         scrollToBottom()
+      },
+      onEvaluation: (evaluation) => {
+        evaluations.value[evaluation.candidateMessageId] = evaluation
       },
       onDone: async (done) => {
         if (session.value) {
@@ -200,9 +225,39 @@ function backToPreview() {
           </div>
           <div v-else class="message-row" :class="message.role === 'CANDIDATE' ? 'right' : 'left'">
             <div class="avatar">{{ message.role === 'CANDIDATE' ? '你' : 'AI' }}</div>
-            <div class="bubble">
-              <span v-if="message.id === streamingMessageId && !message.content" class="typing">AI 正在思考…</span>
-              <span v-else class="bubble-text">{{ message.content }}</span>
+            <div class="message-content">
+              <div class="bubble">
+                <span v-if="message.id === streamingMessageId && !message.content" class="typing">AI 正在思考…</span>
+                <span v-else class="bubble-text">{{ message.content }}</span>
+              </div>
+              <div
+                v-if="message.role === 'CANDIDATE' && evaluations[message.id]"
+                class="evaluation-card"
+                :class="evaluations[message.id].correctness.toLowerCase()"
+              >
+                <div class="evaluation-head">
+                  <span class="evaluation-label">
+                    {{ correctnessLabel(evaluations[message.id].correctness) }}
+                    <em class="evaluation-scope">
+                      {{ evaluations[message.id].promptType === 'FOLLOW_UP' ? '针对追问' : '针对本题' }}
+                    </em>
+                  </span>
+                  <span class="evaluation-score">{{ evaluations[message.id].score }}/5</span>
+                </div>
+                <p
+                  v-if="evaluations[message.id].promptType === 'FOLLOW_UP'"
+                  class="evaluation-prompt"
+                >
+                  {{ evaluations[message.id].promptText }}
+                </p>
+                <p class="evaluation-comment">{{ evaluations[message.id].comment }}</p>
+                <p
+                  v-if="evaluations[message.id].missingPoints?.length"
+                  class="evaluation-missing"
+                >
+                  建议补充：{{ evaluations[message.id].missingPoints.join('、') }}
+                </p>
+              </div>
             </div>
           </div>
         </template>
@@ -212,7 +267,7 @@ function backToPreview() {
         <div v-if="currentQuestion" class="question-bar">
           <span class="q-label">当前 Q{{ currentQuestion.seq }}</span>
           <el-tag size="small" effect="plain">{{ typeLabels[currentQuestion.type] || currentQuestion.type }}</el-tag>
-          <span class="q-meta">追问 {{ currentQuestion.followUpCount }}/2 · 提示 {{ currentQuestion.hintCount }}/1</span>
+          <span class="q-meta">追问 {{ currentQuestion.followUpCount }}/{{ currentQuestion.maxFollowUps }} · 提示 {{ currentQuestion.hintCount }}/1</span>
         </div>
         <el-input
           v-model="input"
@@ -244,9 +299,15 @@ function backToPreview() {
       </section>
 
       <section v-else class="finished">
-        <el-result icon="success" title="面试已结束" sub-title="评分报告与薄弱点分析将在 W4 开放">
+        <el-result icon="success" title="面试已结束" sub-title="查看五维评分报告，复盘本场表现。">
           <template #extra>
-            <el-button type="primary" @click="router.push('/')">返回岗位</el-button>
+            <el-button
+              type="primary"
+              @click="router.push(`/interviews/${route.params.id}/report`)"
+            >
+              查看报告
+            </el-button>
+            <el-button @click="router.push('/')">返回岗位</el-button>
           </template>
         </el-result>
       </section>
@@ -349,8 +410,19 @@ function backToPreview() {
   background: #2e75b6;
 }
 
+.message-content {
+  max-width: 78%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.message-row.right .message-content {
+  align-items: flex-end;
+}
+
 .bubble {
-  max-width: 72%;
+  max-width: 100%;
   padding: 12px 16px;
   border-radius: 14px;
   background: #fff;
@@ -389,6 +461,98 @@ function backToPreview() {
   color: #b88230;
   font-size: 13px;
   text-align: center;
+  line-height: 1.6;
+}
+
+.evaluation-card {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #e4ecf5;
+  background: #fbfdff;
+  font-size: 13px;
+  box-sizing: border-box;
+}
+
+.evaluation-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.evaluation-label {
+  font-weight: 700;
+}
+
+.evaluation-scope {
+  margin-left: 6px;
+  color: #8a97a8;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 400;
+}
+
+.evaluation-score {
+  color: #8a97a8;
+}
+
+.evaluation-prompt {
+  margin: 0 0 6px;
+  color: #8a97a8;
+  font-size: 12px;
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.evaluation-card.correct {
+  border-color: #c2e7b0;
+  background: #f0f9eb;
+}
+
+.evaluation-card.correct .evaluation-label {
+  color: #529b2e;
+}
+
+.evaluation-card.partial {
+  border-color: #f3d19e;
+  background: #fdf6ec;
+}
+
+.evaluation-card.partial .evaluation-label {
+  color: #b88230;
+}
+
+.evaluation-card.insufficient {
+  border-color: #f3d19e;
+  background: #fff7e6;
+}
+
+.evaluation-card.insufficient .evaluation-label {
+  color: #d48806;
+}
+
+.evaluation-card.incorrect {
+  border-color: #f0b4b4;
+  background: #fef0f0;
+}
+
+.evaluation-card.incorrect .evaluation-label {
+  color: #c45656;
+}
+
+.evaluation-comment {
+  margin: 0;
+  color: #5b6b7f;
+  line-height: 1.7;
+}
+
+.evaluation-missing {
+  margin: 6px 0 0;
+  color: #8a97a8;
   line-height: 1.6;
 }
 
@@ -447,8 +611,12 @@ function backToPreview() {
     padding: 12px 14px 18px;
   }
 
+  .message-content {
+    max-width: 86%;
+  }
+
   .bubble {
-    max-width: 82%;
+    max-width: 100%;
   }
 
   .actions {

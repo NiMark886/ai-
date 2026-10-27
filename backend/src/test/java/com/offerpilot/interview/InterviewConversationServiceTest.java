@@ -2,10 +2,15 @@ package com.offerpilot.interview;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.offerpilot.common.exception.BusinessException;
+import com.offerpilot.interview.domain.InterviewMessage;
+import com.offerpilot.interview.domain.InterviewQuestion;
+import com.offerpilot.interview.mapper.InterviewMessageMapper;
+import com.offerpilot.interview.mapper.InterviewQuestionMapper;
 import com.offerpilot.interview.service.InterviewConversationService;
 import com.offerpilot.interview.service.InterviewService;
 import com.offerpilot.interview.web.dto.AnswerRequest;
 import com.offerpilot.interview.web.dto.AnswerResult;
+import com.offerpilot.interview.web.dto.AnswerStreamContext;
 import com.offerpilot.interview.web.dto.CreateInterviewRequest;
 import com.offerpilot.interview.web.dto.InterviewSessionView;
 import com.offerpilot.job.mapper.JobTemplateMapper;
@@ -23,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -48,6 +54,12 @@ class InterviewConversationServiceTest {
     private JobTemplateMapper jobTemplateMapper;
 
     @Autowired
+    private InterviewQuestionMapper questionMapper;
+
+    @Autowired
+    private InterviewMessageMapper messageMapper;
+
+    @Autowired
     private ObjectMapper objectMapper;
 
     @Test
@@ -56,7 +68,7 @@ class InterviewConversationServiceTest {
         Resume resume = createResume(user);
         Long jobId = jobTemplateMapper.selectList(null).get(0).getId();
         InterviewSessionView session = interviewService.create(user.getId(),
-                new CreateInterviewRequest(jobId, resume.getId(), "STANDARD", 30, "STANDARD"));
+                new CreateInterviewRequest(jobId, resume.getId(), "STANDARD", 30, "STANDARD", "INTERVIEW"));
 
         InterviewSessionView started = conversationService.start(user.getId(), session.id());
         assertThat(started.status()).isEqualTo("IN_PROGRESS");
@@ -84,6 +96,112 @@ class InterviewConversationServiceTest {
 
         InterviewSessionView finished = conversationService.finish(user.getId(), session.id());
         assertThat(finished.status()).isEqualTo("COMPLETED");
+    }
+
+    @Test
+    void followUpEvaluationDoesNotReuseOriginalQuestionReferencePoints() throws Exception {
+        User user = createUser();
+        Resume resume = createResume(user);
+        Long jobId = jobTemplateMapper.selectList(null).get(0).getId();
+        InterviewSessionView session = interviewService.create(user.getId(),
+                new CreateInterviewRequest(jobId, resume.getId(), "STANDARD", 30, "STANDARD", "PRACTICE"));
+
+        InterviewSessionView started = conversationService.start(user.getId(), session.id());
+        AnswerResult first = conversationService.answer(user.getId(), session.id(),
+                new AnswerRequest(started.currentQuestionId(), "不知道"));
+        assertThat(first.replyType()).isEqualTo("FOLLOW_UP");
+
+        AnswerResult second = conversationService.answer(user.getId(), session.id(),
+                new AnswerRequest(started.currentQuestionId(), "会重新分布到新的位置"));
+
+        assertThat(second.evaluation()).isNotNull();
+        assertThat(second.evaluation().promptType()).isEqualTo("FOLLOW_UP");
+        assertThat(second.evaluation().promptText()).isEqualTo(first.replyText());
+        assertThat(second.evaluation().missingPoints())
+                .doesNotContain("链表转红黑树阈值 8");
+    }
+
+    @Test
+    void limitsFollowUpsToAvailableHints() throws Exception {
+        User user = createUser();
+        Resume resume = createResume(user);
+        Long jobId = jobTemplateMapper.selectList(null).get(0).getId();
+        InterviewSessionView session = interviewService.create(user.getId(),
+                new CreateInterviewRequest(jobId, resume.getId(), "STANDARD", 30, "STANDARD", "INTERVIEW"));
+
+        InterviewSessionView started = conversationService.start(user.getId(), session.id());
+        AnswerResult first = conversationService.answer(user.getId(), session.id(),
+                new AnswerRequest(started.currentQuestionId(), "不知道"));
+        assertThat(first.replyType()).isEqualTo("FOLLOW_UP");
+
+        AnswerResult second = conversationService.answer(user.getId(), session.id(),
+                new AnswerRequest(started.currentQuestionId(), "不知道"));
+        assertThat(second.replyType()).isIn("QUESTION", "CLOSING");
+    }
+
+    @Test
+    void streamingNextQuestionUsesNextQuestionContext() throws Exception {
+        User user = createUser();
+        Resume resume = createResume(user);
+        Long jobId = jobTemplateMapper.selectList(null).get(0).getId();
+        InterviewSessionView session = interviewService.create(user.getId(),
+                new CreateInterviewRequest(jobId, resume.getId(), "STANDARD", 30, "STANDARD", "PRACTICE"));
+
+        InterviewSessionView started = conversationService.start(user.getId(), session.id());
+        Long currentQuestionId = started.currentQuestionId();
+        InterviewQuestion current = questionMapper.selectById(currentQuestionId);
+        current.setFollowUpHints("[\"能再展开讲讲这道题的边界条件吗？\"]");
+        questionMapper.updateById(current);
+
+        InterviewSessionView reloaded = interviewService.get(user.getId(), session.id());
+        assertThat(reloaded.questions().stream()
+                .filter(question -> question.id().equals(currentQuestionId))
+                .findFirst()
+                .orElseThrow()
+                .maxFollowUps()).isEqualTo(1);
+
+        AnswerStreamContext first = conversationService.beginAnswerStream(user.getId(), session.id(),
+                new AnswerRequest(currentQuestionId, "不知道"));
+        assertThat(first.replyType()).isEqualTo("FOLLOW_UP");
+        conversationService.completeAnswerStream(user.getId(), first, "请再展开讲讲", null);
+
+        AnswerStreamContext second = conversationService.beginAnswerStream(user.getId(), session.id(),
+                new AnswerRequest(currentQuestionId, "不知道"));
+        assertThat(second.replyType()).isEqualTo("QUESTION");
+        assertThat(second.nextQuestionId()).isNotNull();
+
+        InterviewMessage nextPromptMessage = messageMapper.selectById(second.interviewerMessageId());
+        assertThat(nextPromptMessage.getQuestionId()).isEqualTo(second.nextQuestionId());
+
+        String reply = conversationService.streamReply(second)
+                .collectList()
+                .block()
+                .stream()
+                .collect(Collectors.joining());
+        InterviewQuestion next = questionMapper.selectById(second.nextQuestionId());
+        assertThat(reply).contains(next.getContent());
+        assertThat(reply).doesNotContain(current.getContent());
+    }
+
+    @Test
+    void practiceModeReturnsEvaluation() throws Exception {
+        User user = createUser();
+        Resume resume = createResume(user);
+        Long jobId = jobTemplateMapper.selectList(null).get(0).getId();
+        InterviewSessionView session = interviewService.create(user.getId(),
+                new CreateInterviewRequest(jobId, resume.getId(), "STANDARD", 30, "STANDARD", "PRACTICE"));
+
+        InterviewSessionView started = conversationService.start(user.getId(), session.id());
+        var firstQuestion = started.questions().stream()
+                .filter(question -> question.id().equals(started.currentQuestionId()))
+                .findFirst().orElseThrow();
+        String answer = String.join("，", firstQuestion.referencePoints());
+        AnswerResult result = conversationService.answer(user.getId(), session.id(),
+                new AnswerRequest(firstQuestion.id(), answer));
+
+        assertThat(result.evaluation()).isNotNull();
+        assertThat(result.evaluation().correctness()).isIn("CORRECT", "PARTIAL");
+        assertThat(conversationService.evaluations(user.getId(), session.id())).hasSize(1);
     }
 
     private User createUser() {

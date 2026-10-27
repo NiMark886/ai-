@@ -16,6 +16,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import java.util.Map;
 import java.util.UUID;
 
+import static com.offerpilot.support.SseTestSupport.awaitStreamCompletion;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
@@ -66,7 +67,7 @@ class InterviewConversationControllerIT {
                 .andExpect(request().asyncStarted())
                 .andReturn();
 
-        mockMvc.perform(asyncDispatch(sse))
+        mockMvc.perform(asyncDispatch(awaitStreamCompletion(sse)))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("\"replyType\"")))
                 .andExpect(content().string(containsString("\"completed\"")));
@@ -89,6 +90,57 @@ class InterviewConversationControllerIT {
                         .header(AUTHORIZATION, "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.length()").value(org.hamcrest.Matchers.greaterThan(0)));
+    }
+
+    @Test
+    void practiceModeReturnsEvaluation() throws Exception {
+        String token = registerAndToken();
+        long resumeId = uploadResume(token);
+        long sessionId = createInterview(token, resumeId, "PRACTICE");
+
+        mockMvc.perform(post("/api/interviews/" + sessionId + "/start")
+                        .header(AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk());
+
+        MvcResult sessionResult = mockMvc.perform(get("/api/interviews/" + sessionId)
+                        .header(AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn();
+        long questionId = objectMapper.readTree(sessionResult.getResponse().getContentAsString())
+                .get("data").get("currentQuestionId").asLong();
+
+        MvcResult firstSse = mockMvc.perform(post("/api/interviews/" + sessionId + "/answers")
+                        .header(AUTHORIZATION, "Bearer " + token)
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "questionId", questionId,
+                                "content", "不知道"))))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+
+        mockMvc.perform(asyncDispatch(awaitStreamCompletion(firstSse)))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("\"correctness\"")));
+
+        MvcResult secondSse = mockMvc.perform(post("/api/interviews/" + sessionId + "/answers")
+                        .header(AUTHORIZATION, "Bearer " + token)
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "questionId", questionId,
+                                "content", "会重新分布到新的位置"))))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+
+        mockMvc.perform(asyncDispatch(awaitStreamCompletion(secondSse)))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("\"promptType\":\"FOLLOW_UP\"")));
+
+        mockMvc.perform(get("/api/interviews/" + sessionId + "/evaluations")
+                        .header(AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(2))
+                .andExpect(jsonPath("$.data[1].promptType").value("FOLLOW_UP"))
+                .andExpect(jsonPath("$.data[1].promptText").value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.emptyString())));
     }
 
     private String registerAndToken() throws Exception {
@@ -125,6 +177,10 @@ class InterviewConversationControllerIT {
     }
 
     private long createInterview(String token, long resumeId) throws Exception {
+        return createInterview(token, resumeId, "INTERVIEW");
+    }
+
+    private long createInterview(String token, long resumeId, String mode) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/interviews")
                         .header(AUTHORIZATION, "Bearer " + token)
                         .contentType("application/json")
@@ -133,7 +189,8 @@ class InterviewConversationControllerIT {
                                 "resumeId", resumeId,
                                 "difficulty", "STANDARD",
                                 "durationMinutes", 30,
-                                "persona", "STANDARD"))))
+                                "persona", "STANDARD",
+                                "mode", mode))))
                 .andExpect(status().isOk())
                 .andReturn();
         return objectMapper.readTree(result.getResponse().getContentAsString())

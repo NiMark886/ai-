@@ -18,14 +18,20 @@ import com.offerpilot.interview.web.dto.InterviewSessionView;
 import com.offerpilot.interview.web.dto.QuestionView;
 import com.offerpilot.job.domain.JobTemplate;
 import com.offerpilot.job.mapper.JobTemplateMapper;
+import com.offerpilot.questionbank.service.QuestionBankRetriever;
+import com.offerpilot.quota.service.QuotaService;
 import com.offerpilot.resume.domain.Resume;
 import com.offerpilot.resume.domain.ResumeProfile;
 import com.offerpilot.resume.mapper.ResumeMapper;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class InterviewService {
@@ -35,23 +41,31 @@ public class InterviewService {
     private final JobTemplateMapper jobTemplateMapper;
     private final ResumeMapper resumeMapper;
     private final InterviewBlueprintGenerator blueprintGenerator;
+    private final QuestionBankRetriever questionBankRetriever;
+    private final QuotaService quotaService;
     private final ObjectMapper objectMapper;
+    private final TransactionTemplate transactionTemplate;
 
     public InterviewService(InterviewSessionMapper sessionMapper,
                             InterviewQuestionMapper questionMapper,
                             JobTemplateMapper jobTemplateMapper,
                             ResumeMapper resumeMapper,
                             InterviewBlueprintGenerator blueprintGenerator,
-                            ObjectMapper objectMapper) {
+                            QuestionBankRetriever questionBankRetriever,
+                            QuotaService quotaService,
+                            ObjectMapper objectMapper,
+                            TransactionTemplate transactionTemplate) {
         this.sessionMapper = sessionMapper;
         this.questionMapper = questionMapper;
         this.jobTemplateMapper = jobTemplateMapper;
         this.resumeMapper = resumeMapper;
         this.blueprintGenerator = blueprintGenerator;
+        this.questionBankRetriever = questionBankRetriever;
+        this.quotaService = quotaService;
         this.objectMapper = objectMapper;
+        this.transactionTemplate = transactionTemplate;
     }
 
-    @Transactional
     public InterviewSessionView create(Long userId, CreateInterviewRequest request) {
         JobTemplate job = jobTemplateMapper.selectById(request.jobTemplateId());
         if (job == null || !"ACTIVE".equals(job.getStatus())) {
@@ -64,22 +78,35 @@ public class InterviewService {
         }
 
         ResumeProfile profile = readProfile(resume);
+        List<String> tags = new ArrayList<>();
+        tags.add(job.getCategory());
+        if (profile != null && profile.skills() != null) {
+            tags.addAll(profile.skills());
+        }
+        var retrieved = questionBankRetriever.retrieve(job.getJdText(), tags, 8);
+        quotaService.checkAvailable(userId);
         InterviewBlueprint blueprint = blueprintGenerator.generate(new BlueprintRequest(
-                job, profile, request.difficulty(), request.durationMinutes(), request.persona()));
+                job, profile, request.difficulty(), request.durationMinutes(), request.persona(), retrieved));
 
-        InterviewSession session = new InterviewSession();
-        session.setUserId(userId);
-        session.setJobTemplateId(job.getId());
-        session.setResumeId(resume.getId());
-        session.setDifficulty(request.difficulty());
-        session.setDurationMinutes(request.durationMinutes());
-        session.setPersona(request.persona());
-        session.setStatus("READY");
-        session.setBlueprintJson(writeJson(blueprint));
-        sessionMapper.insert(session);
+        return Objects.requireNonNull(transactionTemplate.execute(status -> {
+            quotaService.checkAndConsumeSession(userId);
 
-        List<QuestionView> questions = saveQuestions(session.getId(), blueprint);
-        return toView(session, job.getTitle(), questions);
+            InterviewSession session = new InterviewSession();
+            session.setUserId(userId);
+            session.setJobTemplateId(job.getId());
+            session.setResumeId(resume.getId());
+            session.setDifficulty(request.difficulty());
+            session.setDurationMinutes(request.durationMinutes());
+            session.setPersona(request.persona());
+            String mode = "PRACTICE".equalsIgnoreCase(request.mode()) ? "PRACTICE" : "INTERVIEW";
+            session.setMode(mode);
+            session.setStatus("READY");
+            session.setBlueprintJson(writeJson(blueprint));
+            sessionMapper.insert(session);
+
+            List<QuestionView> questions = saveQuestions(session.getId(), blueprint);
+            return toView(session, job.getTitle(), questions);
+        }));
     }
 
     public InterviewSessionView get(Long userId, Long sessionId) {
@@ -96,14 +123,23 @@ public class InterviewService {
     }
 
     public List<InterviewSessionView> list(Long userId) {
-        return sessionMapper.selectList(new LambdaQueryWrapper<InterviewSession>()
+        List<InterviewSession> sessions = sessionMapper.selectList(
+                new LambdaQueryWrapper<InterviewSession>()
                         .eq(InterviewSession::getUserId, userId)
-                        .orderByDesc(InterviewSession::getCreatedAt))
-                .stream()
-                .map(session -> {
-                    JobTemplate job = jobTemplateMapper.selectById(session.getJobTemplateId());
-                    return toView(session, job == null ? "未知岗位" : job.getTitle(), List.of());
-                })
+                        .orderByDesc(InterviewSession::getCreatedAt));
+        if (sessions.isEmpty()) {
+            return List.of();
+        }
+        Set<Long> jobIds = sessions.stream()
+                .map(InterviewSession::getJobTemplateId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, String> jobTitles = jobIds.isEmpty() ? Map.of()
+                : jobTemplateMapper.selectBatchIds(jobIds).stream()
+                        .collect(Collectors.toMap(JobTemplate::getId, JobTemplate::getTitle, (first, second) -> first));
+        return sessions.stream()
+                .map(session -> toView(session,
+                        jobTitles.getOrDefault(session.getJobTemplateId(), "未知岗位"), List.of()))
                 .toList();
     }
 
@@ -148,6 +184,7 @@ public class InterviewService {
                 readList(question.getReferencePoints()),
                 question.getStatus(),
                 question.getFollowUpCount(),
+                Math.min(2, readList(question.getFollowUpHints()).size()),
                 question.getHintCount());
     }
 
@@ -161,6 +198,7 @@ public class InterviewService {
                 session.getDifficulty(),
                 session.getDurationMinutes(),
                 session.getPersona(),
+                session.getMode(),
                 session.getStatus(),
                 session.getCurrentQuestionId(),
                 session.getCreatedAt(),

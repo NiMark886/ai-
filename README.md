@@ -2,9 +2,9 @@
 
 面向 Java 后端 / Java+AI 求职者的垂直 AI 模拟面试教练。
 
-当前进度：P0 Week 3 已完成（多轮对话、SSE 流式、追问/提示/跳过、面试状态机）。
+当前进度：P0 已闭环（Week 6 完成：Docker Compose 一键部署、20 并发压测、演示物料）。
 
-下一步：P0 Week 4（单题评分、五维报告、历史成长曲线）。
+下一步：P1（向量检索、真实 AI 深度评测、支付与增长）。
 
 ## 目录
 
@@ -12,6 +12,67 @@
 - `frontend/`：Vue3 + Vite + TypeScript + Element Plus
 - `docs/`：实施计划
 - `OfferPilot-智能AI面试问答项目总体方案-V1.0.docx`：产品与技术方案
+
+## 本地运行（当前已验证）
+
+前置条件：本机 MySQL 已启动，存在 `offerpilot` 数据库，账号默认 `root/1234`。
+
+`mysql` profile 必须提供 `JWT_SECRET`（base64 编码的 64 字节）。本地开发可先生成：
+
+```bash
+export JWT_SECRET="$(openssl rand -base64 64 | tr -d '\n')"
+```
+
+后端：
+
+```bash
+cd backend
+SPRING_PROFILES_ACTIVE=mysql MYSQL_HOST=127.0.0.1 MYSQL_PORT=3306 \
+MYSQL_DATABASE=offerpilot MYSQL_USER=root MYSQL_PASSWORD=1234 \
+mvn spring-boot:run
+```
+
+前端：
+
+```bash
+cd frontend
+npm run dev
+```
+
+访问 http://localhost:5173。
+
+## Docker 一键启动（需 Docker Desktop/WSL2）
+
+Windows PowerShell：
+```powershell
+.\scripts\docker-up.ps1
+```
+
+Git Bash / macOS / Linux：
+```bash
+bash scripts/docker-up.sh
+```
+
+访问 http://localhost:8088。首次启动会自动生成 `.env`（含随机 JWT_SECRET）并构建镜像。
+
+前置条件：本机 MySQL 已启动，存在 `offerpilot` 数据库，`.env` 中默认使用 `root/1234`。如本机账号密码不同，请修改 `.env` 的 `MYSQL_USER`、`MYSQL_PASSWORD`、`MYSQL_DATABASE`。容器内通过 `host.docker.internal:3306` 访问宿主 MySQL。
+
+> 本次 W6 验收因本机 Docker Desktop/WSL2 未就绪，使用“本地运行”路径完成；Docker 容器启动验证待环境恢复后补做。
+
+常用命令：
+
+```bash
+docker compose logs -f backend   # 后端日志
+docker compose ps                # 服务状态
+bash scripts/docker-down.sh      # 停止
+bash scripts/docker-down.sh -v   # 停止并清空上传文件
+```
+
+可选基础设施（当前业务未使用）：
+
+```bash
+docker compose --profile infra up -d
+```
 
 ## 快速开始
 
@@ -34,14 +95,18 @@ mvn spring-boot:run
 
 ```bash
 docker compose up -d mysql
+export JWT_SECRET="$(openssl rand -base64 64 | tr -d '\n')"
 cd backend
 SPRING_PROFILES_ACTIVE=mysql mvn spring-boot:run
 ```
 
 PowerShell:
 ```powershell
+$env:JWT_SECRET = [Convert]::ToBase64String((1..64 | ForEach-Object { Get-Random -Maximum 256 }))
 $env:SPRING_PROFILES_ACTIVE="mysql"; mvn spring-boot:run
 ```
+
+> `local` / `test` profile 内置开发用默认密钥；`mysql` profile 不提供默认值，未设置 `JWT_SECRET` 会启动失败。
 
 ### 前端
 
@@ -59,6 +124,22 @@ npm run dev
 cd backend
 mvn test
 ```
+
+## 压测
+
+```bash
+python scripts/load_test.py --users 20 --base-url http://localhost:8080
+```
+
+若使用 Docker 栈，将 `--base-url` 改为 `http://localhost:8088`。
+
+报告输出到 `docs/reports/load-test-20u.json` 与 `docs/reports/load-test-20u.md`。默认 Mock AI，不产生 DeepSeek 费用。
+
+## 演示物料
+
+- `docs/demo/3-minute-demo.md`：3 分钟演示脚本
+- `docs/demo/product-intro.html`：产品介绍页（浏览器直接打开）
+- `docs/demo/resume-project.md`：简历项目描述（含实测数据）
 
 ## 当前 API
 
@@ -83,6 +164,25 @@ mvn test
 | POST | `/api/interviews/{id}/hint` | 请求提示（每题 1 次） |
 | POST | `/api/interviews/{id}/skip` | 跳过当前题 |
 | POST | `/api/interviews/{id}/finish` | 结束面试 |
+| GET | `/api/interviews/{id}/evaluations` | 练习模式逐题点评 |
+| POST | `/api/interviews/{id}/report` | 生成/获取五维报告 |
+| GET | `/api/interviews/{id}/report` | 查询五维报告 |
+| GET | `/api/interviews/history` | 面试历史 |
+| GET | `/api/stats/overview` | 成长统计 |
+| GET | `/api/stats/weaknesses` | 薄弱点与推荐题目 |
+| GET | `/api/quota/me` | 当前用户额度（默认不限） |
+| GET | `/api/ai/providers` | 当前用户的 AI Provider 列表 |
+| GET | `/api/ai/providers/presets` | DeepSeek / MiMo / 自定义预设 |
+| GET | `/api/ai/providers/status` | 真实 AI 开关与默认模型 |
+| POST | `/api/ai/providers` | 新增 AI Provider |
+| PUT | `/api/ai/providers/{id}` | 编辑 AI Provider |
+| DELETE | `/api/ai/providers/{id}` | 删除 AI Provider |
+| POST | `/api/ai/providers/{id}/activate` | 设为当前 Provider |
+| POST | `/api/ai/providers/{id}/test` | 测试连接 |
+| GET | `/api/admin/questions` | 管理员题库分页 |
+| POST | `/api/admin/questions` | 管理员新增题目 |
+| PUT | `/api/admin/questions/{id}` | 管理员编辑题目 |
+| DELETE | `/api/admin/questions/{id}` | 管理员删除题目 |
 
 ## AI 配置（可选）
 
@@ -104,6 +204,69 @@ mvn spring-boot:run
 ```
 
 AI 调用失败会自动回退 Mock 生成器，不会阻塞面试创建。上传的简历默认保存在 `backend/data/uploads`，可通过 `OFFERPILOT_UPLOAD_DIR` 修改。
+
+简历解析：`APP_AI_ENABLED=true` 时使用当前用户激活的 Provider 提取姓名、联系方式、技能、项目、教育等字段；AI 返回字段缺失或格式不规范时会自动归一化，并用规则解析补齐；AI 整体失败时回退到规则解析。上传同步完成，通常需要数秒。
+
+面试蓝图：默认读取超时 25 秒（`AI_BLUEPRINT_TIMEOUT`，ISO-8601 时长），超时或 AI 返回不合法时自动回退 Mock 蓝图；前端创建面试请求超时 60 秒。生成通常需要 5–15 秒，题目越多耗时越长。
+
+## 用户 API 设置（BYOK）
+
+每个用户可以在首页「API 设置」中保存自己的 Provider，面试、评估和报告会使用当前激活的配置：
+
+| 预设 | Base URL | 模型 |
+|---|---|---|
+| DeepSeek | `https://api.deepseek.com` | `deepseek-chat` |
+| 小米 MiMo | `https://api.xiaomimimo.com/v1` | `mimo-v2.5` |
+| MiMo Token Plan | `https://token-plan-cn.xiaomimimo.com/v1` | `mimo-v2.5` |
+| 自定义 | 用户填写 | 用户填写 |
+
+- API Key 使用 AES-GCM 加密存储，接口只返回 `sk-****abcd` 掩码，不会明文回显。
+- 每个用户只能看到和操作自己的配置。
+- 未配置时使用系统默认配置；`APP_AI_ENABLED=false` 时全部使用 Mock，设置页会提示。
+- 生产环境建议单独设置 `AI_SETTINGS_SECRET`；未设置时从 `JWT_SECRET` 派生。更换该密钥会导致已保存的 API Key 无法解密。
+- 生产环境 Base URL 必须是 https 且不能指向内网；本地/测试 profile 默认允许 http 和私网地址。需要连接本地 LLM 时设置 `AI_ALLOW_PRIVATE_BASE_URL=true`。
+
+## 题库与薄弱点
+
+- `question_bank` 表内置 71 道 Java 后端 / AI 面试题（含参考答案、分类、标签）。
+- 创建面试时按岗位 JD、简历技能和题库标签做关键词检索，题库题目会进入 BASIC 题池。
+- 成长页根据历史回答的缺失要点和题目标签聚合薄弱点，推荐题库题目；推荐题目可展开查看参考答案。
+- 当前为关键词检索（RAG-lite），pgvector/bge-m3 向量检索留到部署阶段。
+
+## 管理员账号
+
+- 邮箱：`admin@offerpilot.local`
+- 密码：`admin123`
+- 仅本地开发使用，部署前请修改密码或移除种子账号。
+
+管理员登录后首页会出现“题库管理”入口，可对题库进行分页查询、新增、编辑和软删除；普通用户访问管理员接口返回 403。
+
+## 额度（默认关闭）
+
+- 默认所有用户不限面试场次，`/api/quota/me` 返回 `plan=UNLIMITED`、`remainingSessions=-1`。
+- 设置 `APP_QUOTA_ENFORCE=true` 可恢复普通用户每日 3 场限制（模拟面试与练习模式共用额度），第 4 场返回 HTTP 429（`code=42902`）；管理员始终不限。
+- 额度按自然日重置；创建面试弹窗默认不再显示额度提示。
+
+## 报告与成长
+
+面试结束后可生成五维评分报告：
+
+- 技术准确性、技术深度、项目表现、表达逻辑、岗位匹配度
+- 逐题复盘：回答、正确性、得分、点评、缺失要点
+- 成长记录：总场次、完成场次、平均分、最高分、分数趋势、五维平均
+
+前端报告页：`/interviews/{id}/report`；成长页：`/history`。
+
+## 练习模式
+
+创建面试时选择“练习模式（实时点评）”，每回答一题会立即返回：
+
+- 正确性：正确 / 部分正确 / 需补充 / 不正确
+- 1–5 分
+- 一句点评
+- 缺失要点
+
+默认使用基于参考要点的 Mock 评估；`APP_AI_ENABLED=true` 时使用 Spring AI 评估，失败自动回退 Mock。普通“模拟面试”模式不显示即时点评。
 
 ## 开发约定
 

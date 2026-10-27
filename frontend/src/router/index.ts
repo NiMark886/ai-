@@ -34,6 +34,30 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      path: '/interviews/:id/report',
+      name: 'interview-report',
+      component: () => import('@/views/InterviewReportView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/history',
+      name: 'history',
+      component: () => import('@/views/InterviewHistoryView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/admin/questions',
+      name: 'admin-questions',
+      component: () => import('@/views/AdminQuestionsView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/settings',
+      name: 'settings',
+      component: () => import('@/views/SettingsView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/:pathMatch(.*)*',
       redirect: '/'
     }

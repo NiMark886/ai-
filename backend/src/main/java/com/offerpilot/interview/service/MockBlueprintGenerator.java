@@ -150,6 +150,8 @@ public class MockBlueprintGenerator implements InterviewBlueprintGenerator {
             return List.of();
         }
         return retrieved.stream()
+                .filter(item -> !"开放题".equals(item.category()))
+                .filter(item -> !item.category().contains("经历"))
                 .map(item -> question(item.question(), item.difficulty(),
                         item.tags().stream().limit(3).toList(),
                         List.of(item.referenceAnswer()),

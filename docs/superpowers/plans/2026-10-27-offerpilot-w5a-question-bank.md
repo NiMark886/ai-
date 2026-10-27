@@ -987,3 +987,21 @@ git commit -m "feat(questionbank): add weakness recommendations"
 - **Placeholder scan:** 没有 TBD/TODO；种子 SQL 由明确脚本生成。
 - **Type consistency:** `QuestionBankItem`、`WeaknessView`、`BlueprintRequest.retrievedQuestions` 前后一致；前端字段与后端 DTO 一致。
 - **默认可用性:** 关键词检索不依赖向量库/外部服务，本地 MySQL/H2 均可运行。
+
+---
+
+## 执行记录（2026-10-27）
+
+- 分支：`feat/p0-week5-rag`（基于 `feat/p0-week4-report`）。
+- 种子数据：从本地《基础面试题答案汇总》解析 **71 道题**，导入 `question_bank`（分类/标签/难度/参考答案）。
+- Flyway 占位符问题：题库文本含 `${...}`，已在 `application.yml` 设置 `spring.flyway.placeholder-replacement: false`。
+- 后端测试：`mvn -f backend/pom.xml test` → **45 tests, 0 failures**。
+- 前端构建：`npm --prefix frontend run build` → 成功。
+- 浏览器端到端：
+  - 练习模式创建面试，首题命中题库技术题「分页查询怎么写 SQL？」。
+  - 回答“不知道”后结束，成长页显示薄弱点：MySQL / MyBatis / 分页，及 9 条推荐题目。
+  - 推荐题目可展开查看参考答案。
+- 调整：
+  - 题库题目进入 BASIC 题池，但过滤“开放题/经历类”，避免自我介绍类题目占据技术题位置。
+  - 成长页无报告时五维图显示空状态，不再渲染空坐标轴。
+- 待推送：分支提交在本地，W3/练习模式/W4 的 PR 仍未合并。

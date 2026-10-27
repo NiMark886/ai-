@@ -99,6 +99,44 @@ class InterviewReportControllerIT {
                 .andExpect(jsonPath("$.data.dimensionAverages.accuracy").isNumber());
     }
 
+    @Test
+    void returnsWeaknessRecommendations() throws Exception {
+        String token = registerAndToken();
+        long resumeId = uploadResume(token);
+        long sessionId = createInterview(token, resumeId, "PRACTICE");
+
+        mockMvc.perform(post("/api/interviews/" + sessionId + "/start")
+                        .header(AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk());
+
+        MvcResult sessionResult = mockMvc.perform(get("/api/interviews/" + sessionId)
+                        .header(AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn();
+        long questionId = objectMapper.readTree(sessionResult.getResponse().getContentAsString())
+                .get("data").get("currentQuestionId").asLong();
+
+        MvcResult sse = mockMvc.perform(post("/api/interviews/" + sessionId + "/answers")
+                        .header(AUTHORIZATION, "Bearer " + token)
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "questionId", questionId,
+                                "content", "不知道"))))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+        mockMvc.perform(asyncDispatch(sse)).andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/interviews/" + sessionId + "/finish")
+                        .header(AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/stats/weaknesses")
+                        .header(AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(org.hamcrest.Matchers.greaterThan(0)))
+                .andExpect(jsonPath("$.data[0].recommendedQuestions").isArray());
+    }
+
     private String registerAndToken() throws Exception {
         String email = "report-" + UUID.randomUUID() + "@example.com";
         MvcResult result = mockMvc.perform(post("/api/auth/register")
@@ -133,6 +171,10 @@ class InterviewReportControllerIT {
     }
 
     private long createInterview(String token, long resumeId) throws Exception {
+        return createInterview(token, resumeId, "INTERVIEW");
+    }
+
+    private long createInterview(String token, long resumeId, String mode) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/interviews")
                         .header(AUTHORIZATION, "Bearer " + token)
                         .contentType("application/json")
@@ -142,7 +184,7 @@ class InterviewReportControllerIT {
                                 "difficulty", "STANDARD",
                                 "durationMinutes", 30,
                                 "persona", "STANDARD",
-                                "mode", "INTERVIEW"))))
+                                "mode", mode))))
                 .andExpect(status().isOk())
                 .andReturn();
         return objectMapper.readTree(result.getResponse().getContentAsString())

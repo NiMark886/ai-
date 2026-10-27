@@ -110,6 +110,24 @@ export interface StatsOverview {
   scoreTrend: ScorePoint[]
 }
 
+export interface QuestionBankItem {
+  id: number
+  category: string
+  level: string
+  tags: string[]
+  difficulty: number
+  question: string
+  referenceAnswer: string
+  source: string
+}
+
+export interface WeaknessView {
+  tag: string
+  count: number
+  lastSeen: string
+  recommendedQuestions: QuestionBankItem[]
+}
+
 export interface AnswerEvaluationView {
   id: number
   candidateMessageId: number
@@ -157,6 +175,8 @@ export const interviewApi = {
   history: () => http.get<never, InterviewHistoryItem[]>('/interviews/history'),
 
   stats: () => http.get<never, StatsOverview>('/stats/overview'),
+
+  weaknesses: () => http.get<never, WeaknessView[]>('/stats/weaknesses'),
 
   start: (id: number) => http.post<never, InterviewSession>(`/interviews/${id}/start`),
 

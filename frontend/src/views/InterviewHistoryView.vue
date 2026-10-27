@@ -1,17 +1,23 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import * as echarts from 'echarts/core'
 import { BarChart, LineChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
-import { interviewApi, type InterviewHistoryItem, type StatsOverview } from '@/api/interview'
+import { interviewApi, type InterviewHistoryItem, type StatsOverview, type WeaknessView } from '@/api/interview'
 
 echarts.use([BarChart, LineChart, GridComponent, TooltipComponent, CanvasRenderer])
 
 const router = useRouter()
 const stats = ref<StatsOverview | null>(null)
 const history = ref<InterviewHistoryItem[]>([])
+const weaknesses = ref<WeaknessView[]>([])
+
+const hasDimensions = computed(() => {
+  const d = stats.value?.dimensionAverages
+  return Boolean(d && (d.accuracy || d.depth || d.project || d.expression || d.match))
+})
 const loading = ref(true)
 const trendEl = ref<HTMLElement | null>(null)
 const dimensionEl = ref<HTMLElement | null>(null)
@@ -32,12 +38,14 @@ onBeforeUnmount(() => {
 async function load() {
   loading.value = true
   try {
-    const [statsData, historyData] = await Promise.all([
+    const [statsData, historyData, weaknessData] = await Promise.all([
       interviewApi.stats(),
-      interviewApi.history()
+      interviewApi.history(),
+      interviewApi.weaknesses()
     ])
     stats.value = statsData
     history.value = historyData
+    weaknesses.value = weaknessData
     await nextTick()
     renderTrend()
     renderDimensions()
@@ -81,7 +89,7 @@ function renderTrend() {
 }
 
 function renderDimensions() {
-  if (!dimensionEl.value || !stats.value) return
+  if (!dimensionEl.value || !stats.value || !hasDimensions.value) return
   const d = stats.value.dimensionAverages
   const labels = [
     ['技术准确性', d.accuracy],
@@ -172,7 +180,8 @@ function statusLabel(status: string) {
         </div>
         <div class="card">
           <h2>五维平均</h2>
-          <div ref="dimensionEl" class="chart"></div>
+          <div v-if="hasDimensions" ref="dimensionEl" class="chart"></div>
+          <el-empty v-else description="生成报告后这里会出现五维平均" :image-size="80" />
         </div>
       </section>
 
@@ -207,6 +216,28 @@ function statusLabel(status: string) {
           </el-table-column>
         </el-table>
         <el-empty v-else description="还没有面试记录" :image-size="100" />
+      </section>
+
+      <section class="card">
+        <h2>薄弱点推荐</h2>
+        <div v-if="weaknesses.length" class="weakness-list">
+          <div v-for="weak in weaknesses" :key="weak.tag" class="weakness-item">
+            <div class="weakness-head">
+              <el-tag type="warning" effect="plain">{{ weak.tag }}</el-tag>
+              <span class="muted">出现 {{ weak.count }} 次</span>
+              <span v-if="weak.lastSeen" class="muted">最近 {{ weak.lastSeen }}</span>
+            </div>
+            <ul class="recommend-list">
+              <li v-for="question in weak.recommendedQuestions" :key="question.id">
+                <details>
+                  <summary>{{ question.question }}</summary>
+                  <p class="answer">{{ question.referenceAnswer }}</p>
+                </details>
+              </li>
+            </ul>
+          </div>
+        </div>
+        <el-empty v-else description="完成练习后这里会推荐薄弱知识点" :image-size="80" />
       </section>
     </main>
   </div>
@@ -332,6 +363,49 @@ function statusLabel(status: string) {
 .muted {
   color: #a0aab6;
   font-size: 13px;
+}
+
+.weakness-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.weakness-item {
+  padding: 16px;
+  border: 1px solid #e4ecf5;
+  border-radius: 14px;
+  background: #fbfdff;
+}
+
+.weakness-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.recommend-list {
+  margin: 0;
+  padding-left: 18px;
+  color: #5b6b7f;
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.recommend-list summary {
+  cursor: pointer;
+  color: #2e75b6;
+}
+
+.recommend-list .answer {
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f5f8fc;
+  color: #4a5a6e;
+  line-height: 1.8;
 }
 
 @media (max-width: 860px) {

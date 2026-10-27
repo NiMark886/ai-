@@ -2,9 +2,9 @@
 
 面向 Java 后端 / Java+AI 求职者的垂直 AI 模拟面试教练。
 
-当前进度：P0 Week 4 已完成（五维评分报告、逐题复盘、成长记录与统计图表）。
+当前进度：P0 Week 5A 已完成（71 道题库、关键词检索、蓝图接入、薄弱点推荐）。
 
-下一步：P0 Week 5（题库 RAG、薄弱点推荐、运营后台、额度限流）。
+下一步：P0 Week 5B（运营后台题库 CRUD、额度限流）。
 
 ## 目录
 
@@ -88,6 +88,7 @@ mvn test
 | GET | `/api/interviews/{id}/report` | 查询五维报告 |
 | GET | `/api/interviews/history` | 面试历史 |
 | GET | `/api/stats/overview` | 成长统计 |
+| GET | `/api/stats/weaknesses` | 薄弱点与推荐题目 |
 
 ## AI 配置（可选）
 
@@ -109,6 +110,13 @@ mvn spring-boot:run
 ```
 
 AI 调用失败会自动回退 Mock 生成器，不会阻塞面试创建。上传的简历默认保存在 `backend/data/uploads`，可通过 `OFFERPILOT_UPLOAD_DIR` 修改。
+
+## 题库与薄弱点
+
+- `question_bank` 表内置 71 道 Java 后端 / AI 面试题（含参考答案、分类、标签）。
+- 创建面试时按岗位 JD、简历技能和题库标签做关键词检索，题库题目会进入 BASIC 题池。
+- 成长页根据历史回答的缺失要点和题目标签聚合薄弱点，推荐题库题目；推荐题目可展开查看参考答案。
+- 当前为关键词检索（RAG-lite），pgvector/bge-m3 向量检索留到部署阶段。
 
 ## 报告与成长
 

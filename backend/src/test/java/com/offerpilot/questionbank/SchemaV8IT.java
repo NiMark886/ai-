@@ -18,7 +18,7 @@ class SchemaV8IT {
     @Test
     void seedsQuestionBank() {
         Integer count = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM question_bank WHERE status = 'ACTIVE'", Integer.class);
+                "SELECT COUNT(*) FROM question_bank WHERE status = 'ACTIVE' AND deleted = 0", Integer.class);
         assertThat(count).isEqualTo(71);
     }
 }

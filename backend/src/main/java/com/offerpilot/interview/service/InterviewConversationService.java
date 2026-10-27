@@ -230,14 +230,16 @@ public class InterviewConversationService {
             }
         }
 
-        InterviewMessage interviewer = addMessage(sessionId, question.getId(), "INTERVIEWER", replyType, "");
+        Long interviewerQuestionId = "QUESTION".equals(replyType) && nextQuestionId != null
+                ? nextQuestionId : question.getId();
+        InterviewMessage interviewer = addMessage(sessionId, interviewerQuestionId, "INTERVIEWER", replyType, "");
         return new AnswerStreamContext(sessionId, question.getId(), candidate.getId(), interviewer.getId(),
                 replyType, nextQuestionId, "PRACTICE".equals(session.getMode()),
                 promptText, promptType, request.content());
     }
 
     public Flux<String> streamReply(AnswerStreamContext context) {
-        InterviewQuestion question = questionMapper.selectById(context.questionId());
+        InterviewQuestion question = questionMapper.selectById(context.replyQuestionId());
         if (question == null) {
             return Flux.error(new BusinessException(ErrorCode.NOT_FOUND, "题目不存在"));
         }

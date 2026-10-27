@@ -115,7 +115,7 @@ public class InterviewConversationController {
             Map<String, Object> meta = new LinkedHashMap<>();
             meta.put("candidateMessageId", context.candidateMessageId());
             meta.put("interviewerMessageId", context.interviewerMessageId());
-            meta.put("questionId", context.questionId());
+            meta.put("questionId", context.replyQuestionId());
             meta.put("replyType", context.replyType());
             emitter.send(SseEmitter.event().name("meta").data(toJson(meta)));
 

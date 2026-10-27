@@ -71,6 +71,8 @@ public class SpringAiInterviewerReplyGenerator implements InterviewerReplyGenera
         return """
                 你是一名资深技术面试官。只输出面试官要说的话，不要解释，不要 markdown。
                 控制在一到三句话，语气专业、自然。
+                当前类型为 QUESTION 时，必须提出「当前题目」中的问题；
+                不要继续追问上一题，也不要自行追加新的追问。
                 """;
     }
 
@@ -81,7 +83,7 @@ public class SpringAiInterviewerReplyGenerator implements InterviewerReplyGenera
                 .collect(Collectors.joining("\n"));
         String instruction = switch (type) {
             case OPENING -> "请用面试官口吻开场，并自然地提出第一题。";
-            case QUESTION -> "请用面试官口吻简短过渡，然后提出下一题。";
+            case QUESTION -> "请用面试官口吻用一句话承接上一轮，然后明确提出「当前题目」中的问题，不要继续追问上一题。";
             case FOLLOW_UP -> "请针对候选人的回答追问一个更具体的问题，不要重复原题。";
             case CLOSING -> "请用面试官口吻结束面试，感谢候选人。";
         };

@@ -184,6 +184,7 @@ public class InterviewService {
                 readList(question.getReferencePoints()),
                 question.getStatus(),
                 question.getFollowUpCount(),
+                Math.min(2, readList(question.getFollowUpHints()).size()),
                 question.getHintCount());
     }
 

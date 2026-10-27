@@ -10,6 +10,7 @@ export interface QuestionView {
   referencePoints: string[]
   status: string
   followUpCount: number
+  maxFollowUps: number
   hintCount: number
 }
 

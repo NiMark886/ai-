@@ -153,6 +153,13 @@ class InterviewConversationServiceTest {
         current.setFollowUpHints("[\"能再展开讲讲这道题的边界条件吗？\"]");
         questionMapper.updateById(current);
 
+        InterviewSessionView reloaded = interviewService.get(user.getId(), session.id());
+        assertThat(reloaded.questions().stream()
+                .filter(question -> question.id().equals(currentQuestionId))
+                .findFirst()
+                .orElseThrow()
+                .maxFollowUps()).isEqualTo(1);
+
         AnswerStreamContext first = conversationService.beginAnswerStream(user.getId(), session.id(),
                 new AnswerRequest(currentQuestionId, "不知道"));
         assertThat(first.replyType()).isEqualTo("FOLLOW_UP");

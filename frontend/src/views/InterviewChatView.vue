@@ -267,7 +267,7 @@ function backToPreview() {
         <div v-if="currentQuestion" class="question-bar">
           <span class="q-label">当前 Q{{ currentQuestion.seq }}</span>
           <el-tag size="small" effect="plain">{{ typeLabels[currentQuestion.type] || currentQuestion.type }}</el-tag>
-          <span class="q-meta">追问 {{ currentQuestion.followUpCount }}/2 · 提示 {{ currentQuestion.hintCount }}/1</span>
+          <span class="q-meta">追问 {{ currentQuestion.followUpCount }}/{{ currentQuestion.maxFollowUps }} · 提示 {{ currentQuestion.hintCount }}/1</span>
         </div>
         <el-input
           v-model="input"

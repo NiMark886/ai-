@@ -22,6 +22,12 @@ const router = createRouter({
       component: () => import('@/views/LoginView.vue')
     },
     {
+      path: '/interviews/:id',
+      name: 'interview-session',
+      component: () => import('@/views/InterviewSessionView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/:pathMatch(.*)*',
       redirect: '/'
     }

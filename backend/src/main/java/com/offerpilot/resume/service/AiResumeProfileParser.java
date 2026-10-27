@@ -2,6 +2,7 @@ package com.offerpilot.resume.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.offerpilot.ai.service.AiCallExecutor;
+import com.offerpilot.ai.service.ChatClientProvider;
 import com.offerpilot.resume.domain.ResumeProfile;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -14,19 +15,20 @@ public class AiResumeProfileParser {
     private static final String SCENE = "RESUME";
     private static final String PROMPT_VERSION = "resume-v1";
 
-    private final ChatClient chatClient;
+    private final ChatClientProvider chatClientProvider;
     private final ObjectMapper objectMapper;
     private final AiCallExecutor aiCallExecutor;
 
-    public AiResumeProfileParser(ChatClient.Builder builder,
+    public AiResumeProfileParser(ChatClientProvider chatClientProvider,
                                  ObjectMapper objectMapper,
                                  AiCallExecutor aiCallExecutor) {
-        this.chatClient = builder.build();
+        this.chatClientProvider = chatClientProvider;
         this.objectMapper = objectMapper;
         this.aiCallExecutor = aiCallExecutor;
     }
 
     public ResumeProfile parse(String rawText) {
+        ChatClient chatClient = chatClientProvider.get();
         return aiCallExecutor.callOrThrow(SCENE, PROMPT_VERSION,
                 () -> chatClient.prompt()
                         .system("""

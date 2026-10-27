@@ -1,6 +1,7 @@
 package com.offerpilot.interview.service;
 
 import com.offerpilot.ai.service.AiCallExecutor;
+import com.offerpilot.ai.service.ChatClientProvider;
 import com.offerpilot.interview.domain.InterviewMessage;
 import com.offerpilot.interview.domain.InterviewQuestion;
 import com.offerpilot.interview.domain.ReplyType;
@@ -21,14 +22,14 @@ public class SpringAiInterviewerReplyGenerator implements InterviewerReplyGenera
     private static final String SCENE = "REPLY";
     private static final String PROMPT_VERSION = "reply-v1";
 
-    private final ChatClient chatClient;
+    private final ChatClientProvider chatClientProvider;
     private final AiCallExecutor aiCallExecutor;
     private final MockInterviewerReplyGenerator fallback;
 
-    public SpringAiInterviewerReplyGenerator(ChatClient.Builder builder,
+    public SpringAiInterviewerReplyGenerator(ChatClientProvider chatClientProvider,
                                              AiCallExecutor aiCallExecutor,
                                              MockInterviewerReplyGenerator fallback) {
-        this.chatClient = builder.build();
+        this.chatClientProvider = chatClientProvider;
         this.aiCallExecutor = aiCallExecutor;
         this.fallback = fallback;
     }
@@ -36,6 +37,7 @@ public class SpringAiInterviewerReplyGenerator implements InterviewerReplyGenera
     @Override
     public String generate(InterviewQuestion question, ReplyType type, String candidateAnswer,
                            List<InterviewMessage> history) {
+        ChatClient chatClient = chatClientProvider.get();
         return aiCallExecutor.call(SCENE, PROMPT_VERSION,
                 () -> chatClient.prompt()
                         .system(systemPrompt())
@@ -55,6 +57,7 @@ public class SpringAiInterviewerReplyGenerator implements InterviewerReplyGenera
     @Override
     public Flux<String> stream(InterviewQuestion question, ReplyType type, String candidateAnswer,
                                List<InterviewMessage> history) {
+        ChatClient chatClient = chatClientProvider.get();
         return aiCallExecutor.stream(SCENE, PROMPT_VERSION,
                 () -> chatClient.prompt()
                         .system(systemPrompt())

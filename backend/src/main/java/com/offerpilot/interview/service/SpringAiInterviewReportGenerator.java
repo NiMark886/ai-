@@ -2,6 +2,7 @@ package com.offerpilot.interview.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.offerpilot.ai.service.AiCallExecutor;
+import com.offerpilot.ai.service.ChatClientProvider;
 import com.offerpilot.interview.domain.AnswerEvaluation;
 import com.offerpilot.interview.domain.InterviewMessage;
 import com.offerpilot.interview.domain.InterviewQuestion;
@@ -23,16 +24,16 @@ public class SpringAiInterviewReportGenerator implements InterviewReportGenerato
     private static final String SCENE = "REPORT";
     private static final String PROMPT_VERSION = "report-v1";
 
-    private final ChatClient chatClient;
+    private final ChatClientProvider chatClientProvider;
     private final ObjectMapper objectMapper;
     private final AiCallExecutor aiCallExecutor;
     private final MockInterviewReportGenerator fallback;
 
-    public SpringAiInterviewReportGenerator(ChatClient.Builder builder,
+    public SpringAiInterviewReportGenerator(ChatClientProvider chatClientProvider,
                                             ObjectMapper objectMapper,
                                             AiCallExecutor aiCallExecutor,
                                             MockInterviewReportGenerator fallback) {
-        this.chatClient = builder.build();
+        this.chatClientProvider = chatClientProvider;
         this.objectMapper = objectMapper;
         this.aiCallExecutor = aiCallExecutor;
         this.fallback = fallback;
@@ -43,6 +44,7 @@ public class SpringAiInterviewReportGenerator implements InterviewReportGenerato
                                            List<InterviewQuestion> questions,
                                            List<InterviewMessage> messages,
                                            List<AnswerEvaluation> evaluations) {
+        ChatClient chatClient = chatClientProvider.get();
         return aiCallExecutor.call(SCENE, PROMPT_VERSION,
                 () -> {
                     String context;

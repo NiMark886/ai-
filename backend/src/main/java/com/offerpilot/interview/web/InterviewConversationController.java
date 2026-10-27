@@ -17,7 +17,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -74,7 +77,17 @@ public class InterviewConversationController {
                              @Valid @RequestBody AnswerRequest request) {
         AnswerStreamContext context = conversationService.beginAnswerStream(userId, id, request);
         SseEmitter emitter = new SseEmitter(120_000L);
-        sseExecutor.execute(() -> stream(emitter, userId, context));
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        sseExecutor.execute(() -> {
+            SecurityContext securityContext = SecurityContextHolder.createEmptyContext();
+            securityContext.setAuthentication(authentication);
+            SecurityContextHolder.setContext(securityContext);
+            try {
+                stream(emitter, userId, context);
+            } finally {
+                SecurityContextHolder.clearContext();
+            }
+        });
         return emitter;
     }
 

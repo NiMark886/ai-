@@ -3,6 +3,7 @@ package com.offerpilot.ai.provider.web;
 import com.offerpilot.ai.provider.service.AiProviderService;
 import com.offerpilot.ai.provider.web.dto.AiProviderPreset;
 import com.offerpilot.ai.provider.web.dto.AiProviderRequest;
+import com.offerpilot.ai.provider.web.dto.AiProviderTestResult;
 import com.offerpilot.ai.provider.web.dto.AiProviderView;
 import com.offerpilot.common.api.ApiResponse;
 import jakarta.validation.Valid;
@@ -61,5 +62,11 @@ public class AiProviderController {
     public ApiResponse<AiProviderView> activate(@AuthenticationPrincipal Long userId,
                                                 @PathVariable Long id) {
         return ApiResponse.ok(providerService.activate(userId, id));
+    }
+
+    @PostMapping("/{id}/test")
+    public ApiResponse<AiProviderTestResult> test(@AuthenticationPrincipal Long userId,
+                                                  @PathVariable Long id) {
+        return ApiResponse.ok(providerService.test(userId, id));
     }
 }

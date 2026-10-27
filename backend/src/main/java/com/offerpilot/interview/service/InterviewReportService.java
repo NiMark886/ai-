@@ -29,6 +29,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -124,7 +128,8 @@ public class InterviewReportService {
         }
         if (submit) {
             Long reportId = existing.getId();
-            reportExecutor.execute(() -> generateAsync(userId, sessionId, reportId));
+            reportExecutor.execute(() -> runAsUser(userId,
+                    () -> generateAsync(userId, sessionId, reportId)));
         }
         return buildView(existing, session, questions, messages, evaluations);
     }
@@ -173,6 +178,18 @@ public class InterviewReportService {
                 report.setSummary("报告生成失败，请重试");
                 reportMapper.updateById(report);
             }
+        }
+    }
+
+    private void runAsUser(Long userId, Runnable action) {
+        Authentication authentication = new UsernamePasswordAuthenticationToken(userId, null, List.of());
+        SecurityContext context = SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(authentication);
+        SecurityContextHolder.setContext(context);
+        try {
+            action.run();
+        } finally {
+            SecurityContextHolder.clearContext();
         }
     }
 

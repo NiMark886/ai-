@@ -2,6 +2,7 @@ package com.offerpilot.interview.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.offerpilot.ai.service.AiCallExecutor;
+import com.offerpilot.ai.service.ChatClientProvider;
 import com.offerpilot.interview.domain.BlueprintRequest;
 import com.offerpilot.interview.domain.InterviewBlueprint;
 import com.offerpilot.resume.service.ResumePromptMapper;
@@ -18,20 +19,20 @@ public class SpringAiBlueprintGenerator implements InterviewBlueprintGenerator {
     private static final String SCENE = "BLUEPRINT";
     private static final String PROMPT_VERSION = "blueprint-v1";
 
-    private final ChatClient chatClient;
+    private final ChatClientProvider chatClientProvider;
     private final ObjectMapper objectMapper;
     private final ResumePromptMapper resumePromptMapper;
     private final AiCallExecutor aiCallExecutor;
     private final InterviewBlueprintValidator blueprintValidator;
     private final MockBlueprintGenerator fallback;
 
-    public SpringAiBlueprintGenerator(ChatClient.Builder builder,
+    public SpringAiBlueprintGenerator(ChatClientProvider chatClientProvider,
                                       ObjectMapper objectMapper,
                                       ResumePromptMapper resumePromptMapper,
                                       AiCallExecutor aiCallExecutor,
                                       InterviewBlueprintValidator blueprintValidator,
                                       MockBlueprintGenerator fallback) {
-        this.chatClient = builder.build();
+        this.chatClientProvider = chatClientProvider;
         this.objectMapper = objectMapper;
         this.resumePromptMapper = resumePromptMapper;
         this.aiCallExecutor = aiCallExecutor;
@@ -46,6 +47,7 @@ public class SpringAiBlueprintGenerator implements InterviewBlueprintGenerator {
             case 45 -> 10;
             default -> 8;
         };
+        ChatClient chatClient = chatClientProvider.get();
         return aiCallExecutor.call(SCENE, PROMPT_VERSION,
                 () -> chatClient.prompt()
                         .system("""

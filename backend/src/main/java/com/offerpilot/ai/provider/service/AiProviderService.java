@@ -6,9 +6,12 @@ import com.offerpilot.ai.provider.domain.AiProvider;
 import com.offerpilot.ai.provider.mapper.AiProviderMapper;
 import com.offerpilot.ai.provider.web.dto.AiProviderPreset;
 import com.offerpilot.ai.provider.web.dto.AiProviderRequest;
+import com.offerpilot.ai.provider.web.dto.AiProviderTestResult;
 import com.offerpilot.ai.provider.web.dto.AiProviderView;
+import com.offerpilot.ai.service.AiChatClientFactory;
 import com.offerpilot.common.exception.BusinessException;
 import com.offerpilot.common.exception.ErrorCode;
+import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,10 +24,14 @@ public class AiProviderService {
 
     private final AiProviderMapper providerMapper;
     private final ApiKeyCipher apiKeyCipher;
+    private final AiChatClientFactory chatClientFactory;
 
-    public AiProviderService(AiProviderMapper providerMapper, ApiKeyCipher apiKeyCipher) {
+    public AiProviderService(AiProviderMapper providerMapper,
+                             ApiKeyCipher apiKeyCipher,
+                             AiChatClientFactory chatClientFactory) {
         this.providerMapper = providerMapper;
         this.apiKeyCipher = apiKeyCipher;
+        this.chatClientFactory = chatClientFactory;
     }
 
     public List<AiProviderView> list(Long userId) {
@@ -141,6 +148,25 @@ public class AiProviderService {
                 .last("LIMIT 1"));
     }
 
+    public AiProviderTestResult test(Long userId, Long id) {
+        AiProvider provider = getOwned(userId, id);
+        long start = System.currentTimeMillis();
+        try {
+            ChatClient chatClient = chatClientFactory.build(provider);
+            String content = chatClient.prompt()
+                    .user("请只回复 OK")
+                    .call()
+                    .content();
+            long latencyMs = System.currentTimeMillis() - start;
+            String message = content == null || content.isBlank() ? "连接成功" : content.trim();
+            return new AiProviderTestResult(true, latencyMs, provider.getModel(), truncate(message));
+        } catch (Exception ex) {
+            long latencyMs = System.currentTimeMillis() - start;
+            return new AiProviderTestResult(false, latencyMs, provider.getModel(),
+                    truncate(ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage()));
+        }
+    }
+
     public AiProvider getOwned(Long userId, Long id) {
         AiProvider provider = providerMapper.selectById(id);
         if (provider == null || !Objects.equals(provider.getUserId(), userId)) {
@@ -207,5 +233,12 @@ public class AiProviderService {
             return 0.4;
         }
         return Math.max(0.0, Math.min(2.0, temperature));
+    }
+
+    private String truncate(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.length() <= 200 ? value : value.substring(0, 200);
     }
 }

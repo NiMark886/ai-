@@ -2,6 +2,7 @@ package com.offerpilot.interview.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.offerpilot.ai.service.AiCallExecutor;
+import com.offerpilot.ai.service.ChatClientProvider;
 import com.offerpilot.interview.domain.InterviewQuestion;
 import com.offerpilot.interview.web.dto.AnswerEvaluationResult;
 import org.springframework.ai.chat.client.ChatClient;
@@ -17,16 +18,16 @@ public class SpringAiAnswerEvaluator implements AnswerEvaluator {
     private static final String SCENE = "EVALUATION";
     private static final String PROMPT_VERSION = "evaluation-v1";
 
-    private final ChatClient chatClient;
+    private final ChatClientProvider chatClientProvider;
     private final ObjectMapper objectMapper;
     private final AiCallExecutor aiCallExecutor;
     private final MockAnswerEvaluator fallback;
 
-    public SpringAiAnswerEvaluator(ChatClient.Builder builder,
+    public SpringAiAnswerEvaluator(ChatClientProvider chatClientProvider,
                                    ObjectMapper objectMapper,
                                    AiCallExecutor aiCallExecutor,
                                    MockAnswerEvaluator fallback) {
-        this.chatClient = builder.build();
+        this.chatClientProvider = chatClientProvider;
         this.objectMapper = objectMapper;
         this.aiCallExecutor = aiCallExecutor;
         this.fallback = fallback;
@@ -35,6 +36,7 @@ public class SpringAiAnswerEvaluator implements AnswerEvaluator {
     @Override
     public AnswerEvaluationResult evaluate(InterviewQuestion question, String promptText,
                                            String promptType, String answer) {
+        ChatClient chatClient = chatClientProvider.get();
         return aiCallExecutor.call(SCENE, PROMPT_VERSION,
                 () -> chatClient.prompt()
                         .system("""

@@ -86,6 +86,24 @@ class InterviewConversationServiceTest {
         assertThat(finished.status()).isEqualTo("COMPLETED");
     }
 
+    @Test
+    void practiceModeReturnsEvaluation() throws Exception {
+        User user = createUser();
+        Resume resume = createResume(user);
+        Long jobId = jobTemplateMapper.selectList(null).get(0).getId();
+        InterviewSessionView session = interviewService.create(user.getId(),
+                new CreateInterviewRequest(jobId, resume.getId(), "STANDARD", 30, "STANDARD", "PRACTICE"));
+
+        InterviewSessionView started = conversationService.start(user.getId(), session.id());
+        AnswerResult result = conversationService.answer(user.getId(), session.id(),
+                new AnswerRequest(started.currentQuestionId(),
+                        "HashMap 底层是数组、链表和红黑树，扩容时容量翻倍"));
+
+        assertThat(result.evaluation()).isNotNull();
+        assertThat(result.evaluation().correctness()).isIn("CORRECT", "PARTIAL");
+        assertThat(conversationService.evaluations(user.getId(), session.id())).hasSize(1);
+    }
+
     private User createUser() {
         User user = new User();
         user.setEmail("conv-" + UUID.randomUUID() + "@example.com");

@@ -8,6 +8,7 @@ public record AnswerResult(
         String replyText,
         String sessionStatus,
         Long currentQuestionId,
-        boolean completed
+        boolean completed,
+        AnswerEvaluationView evaluation
 ) {
 }

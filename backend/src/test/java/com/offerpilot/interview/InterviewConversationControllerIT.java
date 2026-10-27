@@ -91,6 +91,43 @@ class InterviewConversationControllerIT {
                 .andExpect(jsonPath("$.data.length()").value(org.hamcrest.Matchers.greaterThan(0)));
     }
 
+    @Test
+    void practiceModeReturnsEvaluation() throws Exception {
+        String token = registerAndToken();
+        long resumeId = uploadResume(token);
+        long sessionId = createInterview(token, resumeId, "PRACTICE");
+
+        mockMvc.perform(post("/api/interviews/" + sessionId + "/start")
+                        .header(AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk());
+
+        MvcResult sessionResult = mockMvc.perform(get("/api/interviews/" + sessionId)
+                        .header(AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn();
+        long questionId = objectMapper.readTree(sessionResult.getResponse().getContentAsString())
+                .get("data").get("currentQuestionId").asLong();
+
+        MvcResult sse = mockMvc.perform(post("/api/interviews/" + sessionId + "/answers")
+                        .header(AUTHORIZATION, "Bearer " + token)
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "questionId", questionId,
+                                "content", "HashMap 底层是数组、链表和红黑树，扩容时容量翻倍"))))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+
+        mockMvc.perform(asyncDispatch(sse))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("\"correctness\"")))
+                .andExpect(content().string(containsString("\"comment\"")));
+
+        mockMvc.perform(get("/api/interviews/" + sessionId + "/evaluations")
+                        .header(AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(1));
+    }
+
     private String registerAndToken() throws Exception {
         String email = "conv-api-" + UUID.randomUUID() + "@example.com";
         MvcResult result = mockMvc.perform(post("/api/auth/register")
@@ -125,6 +162,10 @@ class InterviewConversationControllerIT {
     }
 
     private long createInterview(String token, long resumeId) throws Exception {
+        return createInterview(token, resumeId, "INTERVIEW");
+    }
+
+    private long createInterview(String token, long resumeId, String mode) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/interviews")
                         .header(AUTHORIZATION, "Bearer " + token)
                         .contentType("application/json")
@@ -133,7 +174,8 @@ class InterviewConversationControllerIT {
                                 "resumeId", resumeId,
                                 "difficulty", "STANDARD",
                                 "durationMinutes", 30,
-                                "persona", "STANDARD"))))
+                                "persona", "STANDARD",
+                                "mode", mode))))
                 .andExpect(status().isOk())
                 .andReturn();
         return objectMapper.readTree(result.getResponse().getContentAsString())

@@ -3,6 +3,7 @@ package com.offerpilot.interview.web;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.offerpilot.common.api.ApiResponse;
 import com.offerpilot.interview.service.InterviewConversationService;
+import com.offerpilot.interview.web.dto.AnswerEvaluationView;
 import com.offerpilot.interview.web.dto.AnswerRequest;
 import com.offerpilot.interview.web.dto.AnswerResult;
 import com.offerpilot.interview.web.dto.HintResult;
@@ -55,6 +56,12 @@ public class InterviewConversationController {
         return ApiResponse.ok(conversationService.messages(userId, id));
     }
 
+    @GetMapping("/evaluations")
+    public ApiResponse<List<AnswerEvaluationView>> evaluations(@AuthenticationPrincipal Long userId,
+                                                               @PathVariable Long id) {
+        return ApiResponse.ok(conversationService.evaluations(userId, id));
+    }
+
     @PostMapping(value = "/answers", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter answer(@AuthenticationPrincipal Long userId,
                              @PathVariable Long id,
@@ -83,6 +90,7 @@ public class InterviewConversationController {
     private void stream(SseEmitter emitter, AnswerResult result) {
         try {
             Map<String, Object> meta = new LinkedHashMap<>();
+            meta.put("candidateMessageId", result.candidateMessageId());
             meta.put("interviewerMessageId", result.interviewerMessageId());
             meta.put("questionId", result.questionId());
             meta.put("replyType", result.replyType());
@@ -91,6 +99,10 @@ public class InterviewConversationController {
             for (String chunk : chunks(result.replyText())) {
                 emitter.send(SseEmitter.event().name("delta").data(toJson(Map.of("text", chunk))));
                 Thread.sleep(25);
+            }
+
+            if (result.evaluation() != null) {
+                emitter.send(SseEmitter.event().name("evaluation").data(toJson(result.evaluation())));
             }
 
             Map<String, Object> done = new LinkedHashMap<>();

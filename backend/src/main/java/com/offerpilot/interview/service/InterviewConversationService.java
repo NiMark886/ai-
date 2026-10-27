@@ -5,13 +5,17 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.offerpilot.common.exception.BusinessException;
 import com.offerpilot.common.exception.ErrorCode;
+import com.offerpilot.interview.domain.AnswerEvaluation;
 import com.offerpilot.interview.domain.InterviewMessage;
 import com.offerpilot.interview.domain.InterviewQuestion;
 import com.offerpilot.interview.domain.InterviewSession;
 import com.offerpilot.interview.domain.ReplyType;
+import com.offerpilot.interview.mapper.AnswerEvaluationMapper;
 import com.offerpilot.interview.mapper.InterviewMessageMapper;
 import com.offerpilot.interview.mapper.InterviewQuestionMapper;
 import com.offerpilot.interview.mapper.InterviewSessionMapper;
+import com.offerpilot.interview.web.dto.AnswerEvaluationResult;
+import com.offerpilot.interview.web.dto.AnswerEvaluationView;
 import com.offerpilot.interview.web.dto.AnswerRequest;
 import com.offerpilot.interview.web.dto.AnswerResult;
 import com.offerpilot.interview.web.dto.HintResult;
@@ -31,6 +35,8 @@ public class InterviewConversationService {
     private final InterviewMessageMapper messageMapper;
     private final InterviewService interviewService;
     private final InterviewerReplyGenerator replyGenerator;
+    private final AnswerEvaluator answerEvaluator;
+    private final AnswerEvaluationMapper evaluationMapper;
     private final ObjectMapper objectMapper;
 
     public InterviewConversationService(InterviewSessionMapper sessionMapper,
@@ -38,12 +44,16 @@ public class InterviewConversationService {
                                         InterviewMessageMapper messageMapper,
                                         InterviewService interviewService,
                                         InterviewerReplyGenerator replyGenerator,
+                                        AnswerEvaluator answerEvaluator,
+                                        AnswerEvaluationMapper evaluationMapper,
                                         ObjectMapper objectMapper) {
         this.sessionMapper = sessionMapper;
         this.questionMapper = questionMapper;
         this.messageMapper = messageMapper;
         this.interviewService = interviewService;
         this.replyGenerator = replyGenerator;
+        this.answerEvaluator = answerEvaluator;
+        this.evaluationMapper = evaluationMapper;
         this.objectMapper = objectMapper;
     }
 
@@ -79,6 +89,17 @@ public class InterviewConversationService {
                 .toList();
     }
 
+    public List<AnswerEvaluationView> evaluations(Long userId, Long sessionId) {
+        loadOwned(userId, sessionId);
+        return evaluationMapper.selectList(new LambdaQueryWrapper<AnswerEvaluation>()
+                        .eq(AnswerEvaluation::getSessionId, sessionId)
+                        .orderByAsc(AnswerEvaluation::getId))
+                .stream()
+                .map(evaluation -> AnswerEvaluationView.from(evaluation,
+                        readList(evaluation.getMissingPoints())))
+                .toList();
+    }
+
     @Transactional
     public AnswerResult answer(Long userId, Long sessionId, AnswerRequest request) {
         InterviewSession session = loadOwned(userId, sessionId);
@@ -93,6 +114,7 @@ public class InterviewConversationService {
         }
 
         InterviewMessage candidate = addMessage(sessionId, question.getId(), "CANDIDATE", "ANSWER", request.content());
+        AnswerEvaluationView evaluation = evaluateIfPractice(session, question, candidate, request.content());
         List<InterviewMessage> historyMessages = history(sessionId);
 
         if (shouldFollowUp(question, request.content())) {
@@ -102,7 +124,7 @@ public class InterviewConversationService {
             String reply = replyGenerator.generate(question, ReplyType.FOLLOW_UP, request.content(), historyMessages);
             InterviewMessage interviewer = addMessage(sessionId, question.getId(), "INTERVIEWER", "FOLLOW_UP", reply);
             return new AnswerResult(candidate.getId(), interviewer.getId(), question.getId(),
-                    "FOLLOW_UP", reply, session.getStatus(), question.getId(), false);
+                    "FOLLOW_UP", reply, session.getStatus(), question.getId(), false, evaluation);
         }
 
         question.setStatus("ANSWERED");
@@ -116,7 +138,7 @@ public class InterviewConversationService {
             InterviewMessage interviewer = addMessage(sessionId, next.getId(), "INTERVIEWER", "QUESTION", reply);
             sessionMapper.updateById(session);
             return new AnswerResult(candidate.getId(), interviewer.getId(), next.getId(),
-                    "QUESTION", reply, session.getStatus(), next.getId(), false);
+                    "QUESTION", reply, session.getStatus(), next.getId(), false, evaluation);
         }
 
         complete(session);
@@ -124,7 +146,7 @@ public class InterviewConversationService {
         String reply = replyGenerator.generate(question, ReplyType.CLOSING, request.content(), historyMessages);
         InterviewMessage interviewer = addMessage(sessionId, question.getId(), "INTERVIEWER", "CLOSING", reply);
         return new AnswerResult(candidate.getId(), interviewer.getId(), question.getId(),
-                "CLOSING", reply, "COMPLETED", null, true);
+                "CLOSING", reply, "COMPLETED", null, true, evaluation);
     }
 
     @Transactional
@@ -262,6 +284,35 @@ public class InterviewConversationService {
         message.setContent(content);
         messageMapper.insert(message);
         return message;
+    }
+
+    private AnswerEvaluationView evaluateIfPractice(InterviewSession session,
+                                                    InterviewQuestion question,
+                                                    InterviewMessage candidate,
+                                                    String answer) {
+        if (!"PRACTICE".equals(session.getMode())) {
+            return null;
+        }
+        AnswerEvaluationResult result = answerEvaluator.evaluate(question, answer);
+        AnswerEvaluation evaluation = new AnswerEvaluation();
+        evaluation.setSessionId(session.getId());
+        evaluation.setQuestionId(question.getId());
+        evaluation.setCandidateMessageId(candidate.getId());
+        evaluation.setCorrectness(result.correctness());
+        evaluation.setScore(result.score());
+        evaluation.setComment(result.comment());
+        evaluation.setMissingPoints(writeJson(result.missingPoints()));
+        evaluation.setConfidence(result.confidence());
+        evaluationMapper.insert(evaluation);
+        return AnswerEvaluationView.from(evaluation, result.missingPoints());
+    }
+
+    private String writeJson(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (Exception ex) {
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "评估结果序列化失败");
+        }
     }
 
     private List<String> readList(String json) {

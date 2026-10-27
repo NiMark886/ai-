@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
 import { jobApi, type JobTemplate } from '@/api/job'
+import type { InterviewSession } from '@/api/interview'
+import InterviewSetupDialog from '@/components/InterviewSetupDialog.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
@@ -10,6 +11,8 @@ const router = useRouter()
 
 const jobs = ref<JobTemplate[]>([])
 const loading = ref(true)
+const setupVisible = ref(false)
+const selectedJob = ref<JobTemplate | null>(null)
 
 onMounted(async () => {
   try {
@@ -30,7 +33,13 @@ async function handleLogout() {
 }
 
 function startInterview(job: JobTemplate) {
-  ElMessage.info(`「${job.title}」面试功能将在下一阶段开放`)
+  selectedJob.value = job
+  setupVisible.value = true
+}
+
+function handleInterviewCreated(session: InterviewSession) {
+  setupVisible.value = false
+  router.push(`/interviews/${session.id}`)
 }
 
 function focusTags(job: JobTemplate): string[] {
@@ -70,7 +79,7 @@ function sampleTopics(job: JobTemplate): string[] {
     <main class="content">
       <section class="hero">
         <div>
-          <p class="eyebrow">P0 · WEEK 1</p>
+          <p class="eyebrow">P0 · WEEK 2</p>
           <h1>选择你的目标岗位</h1>
           <p class="subtitle">
             AI 将根据岗位与简历生成一场带追问的模拟面试。先选一个方向，开始训练。
@@ -109,13 +118,19 @@ function sampleTopics(job: JobTemplate): string[] {
             <el-button type="primary" size="large" @click="startInterview(job)">
               开始面试
             </el-button>
-            <span class="coming">W2 开放</span>
+            <span class="coming">约 1 分钟</span>
           </div>
         </article>
       </section>
 
       <el-empty v-if="!loading && jobs.length === 0" description="暂无岗位模板" />
     </main>
+
+    <InterviewSetupDialog
+      v-model="setupVisible"
+      :job="selectedJob"
+      @created="handleInterviewCreated"
+    />
   </div>
 </template>
 

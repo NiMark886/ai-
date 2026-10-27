@@ -16,6 +16,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import java.util.Map;
 import java.util.UUID;
 
+import static com.offerpilot.support.SseTestSupport.awaitStreamCompletion;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
@@ -66,7 +67,7 @@ class InterviewConversationControllerIT {
                 .andExpect(request().asyncStarted())
                 .andReturn();
 
-        mockMvc.perform(asyncDispatch(sse))
+        mockMvc.perform(asyncDispatch(awaitStreamCompletion(sse)))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("\"replyType\"")))
                 .andExpect(content().string(containsString("\"completed\"")));
@@ -117,7 +118,7 @@ class InterviewConversationControllerIT {
                 .andExpect(request().asyncStarted())
                 .andReturn();
 
-        mockMvc.perform(asyncDispatch(firstSse))
+        mockMvc.perform(asyncDispatch(awaitStreamCompletion(firstSse)))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("\"correctness\"")));
 
@@ -130,7 +131,7 @@ class InterviewConversationControllerIT {
                 .andExpect(request().asyncStarted())
                 .andReturn();
 
-        mockMvc.perform(asyncDispatch(secondSse))
+        mockMvc.perform(asyncDispatch(awaitStreamCompletion(secondSse)))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("\"promptType\":\"FOLLOW_UP\"")));
 

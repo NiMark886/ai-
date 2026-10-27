@@ -16,6 +16,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import java.util.Map;
 import java.util.UUID;
 
+import static com.offerpilot.support.SseTestSupport.awaitStreamCompletion;
 import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -61,7 +62,7 @@ class InterviewReportControllerIT {
                                 "content", "HashMap 底层是数组、链表和红黑树，扩容时容量翻倍，会重新分布元素。我会结合一次线上扩容导致的性能抖动，说明如何通过预设容量和监控 GC 来优化。"))))
                 .andExpect(request().asyncStarted())
                 .andReturn();
-        mockMvc.perform(asyncDispatch(sse)).andExpect(status().isOk());
+        mockMvc.perform(asyncDispatch(awaitStreamCompletion(sse))).andExpect(status().isOk());
 
         mockMvc.perform(post("/api/interviews/" + sessionId + "/finish")
                         .header(AUTHORIZATION, "Bearer " + token))
@@ -124,7 +125,7 @@ class InterviewReportControllerIT {
                                 "content", "不知道"))))
                 .andExpect(request().asyncStarted())
                 .andReturn();
-        mockMvc.perform(asyncDispatch(sse)).andExpect(status().isOk());
+        mockMvc.perform(asyncDispatch(awaitStreamCompletion(sse))).andExpect(status().isOk());
 
         mockMvc.perform(post("/api/interviews/" + sessionId + "/finish")
                         .header(AUTHORIZATION, "Bearer " + token))

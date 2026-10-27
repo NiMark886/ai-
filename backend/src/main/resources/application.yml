@@ -58,6 +58,7 @@ app:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
   ai:
     enabled: ${APP_AI_ENABLED:false}
+    allow-private-base-url: ${AI_ALLOW_PRIVATE_BASE_URL:false}
   quota:
     enforce: ${APP_QUOTA_ENFORCE:false}
     free-daily-sessions: 3

@@ -220,6 +220,7 @@ AI 调用失败会自动回退 Mock 生成器，不会阻塞面试创建。上�
 - 每个用户只能看到和操作自己的配置。
 - 未配置时使用系统默认配置；`APP_AI_ENABLED=false` 时全部使用 Mock，设置页会提示。
 - 生产环境建议单独设置 `AI_SETTINGS_SECRET`；未设置时从 `JWT_SECRET` 派生。更换该密钥会导致已保存的 API Key 无法解密。
+- 生产环境 Base URL 必须是 https 且不能指向内网；本地/测试 profile 默认允许 http 和私网地址。需要连接本地 LLM 时设置 `AI_ALLOW_PRIVATE_BASE_URL=true`。
 
 ## 题库与薄弱点
 

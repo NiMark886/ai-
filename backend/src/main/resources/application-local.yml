@@ -1,6 +1,8 @@
 app:
   jwt:
     secret: ${JWT_SECRET:SrRRpFGv51wnxllAChZ6Ql1Bty5dvWIGIzbde9nqSxwIkjryZELF+htOBHGb6pX7jHjF0JHXoJUOyRtO7YsStQ==}
+  ai:
+    allow-private-base-url: true
 
 spring:
   datasource:

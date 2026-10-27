@@ -17,6 +17,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.net.InetAddress;
+import java.net.URI;
+import java.net.UnknownHostException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -29,17 +32,20 @@ public class AiProviderService {
     private final AiChatClientFactory chatClientFactory;
     private final boolean aiEnabled;
     private final String defaultModel;
+    private final boolean allowPrivateBaseUrl;
 
     public AiProviderService(AiProviderMapper providerMapper,
                              ApiKeyCipher apiKeyCipher,
                              AiChatClientFactory chatClientFactory,
                              @Value("${app.ai.enabled:false}") boolean aiEnabled,
-                             @Value("${spring.ai.openai.chat.options.model:deepseek-chat}") String defaultModel) {
+                             @Value("${spring.ai.openai.chat.options.model:deepseek-chat}") String defaultModel,
+                             @Value("${app.ai.allow-private-base-url:false}") boolean allowPrivateBaseUrl) {
         this.providerMapper = providerMapper;
         this.apiKeyCipher = apiKeyCipher;
         this.chatClientFactory = chatClientFactory;
         this.aiEnabled = aiEnabled;
         this.defaultModel = defaultModel;
+        this.allowPrivateBaseUrl = allowPrivateBaseUrl;
     }
 
     public List<AiProviderView> list(Long userId) {
@@ -226,7 +232,43 @@ public class AiProviderService {
         while (value.endsWith("/")) {
             value = value.substring(0, value.length() - 1);
         }
+        validateBaseUrl(value);
         return value;
+    }
+
+    private void validateBaseUrl(String value) {
+        URI uri;
+        try {
+            uri = URI.create(value);
+        } catch (IllegalArgumentException ex) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Base URL 格式不正确");
+        }
+        String scheme = uri.getScheme();
+        boolean https = scheme != null && scheme.equalsIgnoreCase("https");
+        boolean localHttp = allowPrivateBaseUrl && scheme != null && scheme.equalsIgnoreCase("http");
+        if (!https && !localHttp) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Base URL 必须使用 https");
+        }
+        String host = uri.getHost();
+        if (host == null || host.isBlank()) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Base URL 缺少主机名");
+        }
+        if (allowPrivateBaseUrl) {
+            return;
+        }
+        try {
+            for (InetAddress address : InetAddress.getAllByName(host)) {
+                if (address.isAnyLocalAddress()
+                        || address.isLoopbackAddress()
+                        || address.isLinkLocalAddress()
+                        || address.isSiteLocalAddress()
+                        || address.isMulticastAddress()) {
+                    throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Base URL 不能指向内网地址");
+                }
+            }
+        } catch (UnknownHostException ex) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Base URL 域名无法解析");
+        }
     }
 
     private String resolveModel(AiProviderType type, String model) {

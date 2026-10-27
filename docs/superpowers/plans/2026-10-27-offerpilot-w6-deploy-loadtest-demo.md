@@ -10,6 +10,8 @@
 
 **分支:** `feat/p0-week6-deploy`（已从 `feat/p0-week5b-admin-quota` 创建）
 
+**执行环境变更（2026-10-27）：** 本机 Docker Desktop 无法启动（WSL2/服务权限未就绪，当前会话无法提权）。W6 运行验收改为本地模式：Maven + 本地 MySQL（`root/1234`，库 `offerpilot`）+ Vite。Dockerfile、Compose 与脚本仍交付并做静态/配置校验；`docker build`、`docker compose up` 与 Nginx 运行时验证标记为环境阻塞，待 Docker 可用后补验。
+
 ---
 
 ## 文件结构
@@ -85,6 +87,8 @@ cd /e/work
 docker build -t offerpilot-backend:test backend
 ```
 Expected: 构建成功，最后输出 `naming to docker.io/library/offerpilot-backend:test`。
+
+> 若 Docker daemon 不可用：跳过 Step 3–4，记录 `DOCKER_UNAVAILABLE`，继续 Step 5 提交 Dockerfile；运行验证待环境恢复后补做。
 
 - [ ] **Step 4: 用 H2 启动镜像并验证健康**
 
@@ -198,6 +202,8 @@ cd /e/work
 docker build -t offerpilot-frontend:test frontend
 ```
 Expected: 构建成功。
+
+> 若 Docker daemon 不可用：跳过 Step 4–5，记录 `DOCKER_UNAVAILABLE`，继续 Step 6 提交前端镜像文件；运行验证待环境恢复后补做。
 
 - [ ] **Step 5: 验证静态页面与 history fallback**
 
@@ -1115,67 +1121,101 @@ git commit -m "docs(demo): add 3-minute demo script and product intro page"
 
 ---
 
-## Task 7: 全栈联调、浏览器验收与 20 并发压测
+## Task 7: 本地全栈联调、浏览器验收与 20 并发压测
+
+> Docker daemon 不可用，本节改用本地运行：Maven + 本地 MySQL + Vite。Nginx/Docker 运行时验证延期。
 
 **Files:**
 - Create: `docs/reports/load-test-20u.json`
 - Create: `docs/reports/load-test-20u.md`
 
-- [ ] **Step 1: 启动完整栈**
+- [ ] **Step 1: 确认本地 MySQL 与数据库**
 
 Run:
 ```bash
-cd /e/work
-bash scripts/docker-up.sh
+mysql -uroot -p1234 -h127.0.0.1 -e "CREATE DATABASE IF NOT EXISTS offerpilot CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci; SELECT 1;" && echo "MYSQL_OK"
 ```
-Expected: 输出 `OfferPilot 已启动：http://localhost:8088`。
+Expected: `MYSQL_OK`。
 
-- [ ] **Step 2: 容器与健康状态检查**
+- [ ] **Step 2: 以 MySQL profile 重启后端**
+
+停止旧的 8080 实例（仅限本项目开发进程），再启动：
+```bash
+PID=$(netstat -ano | grep ":8080 .*LISTEN" | awk '{print $5}' | head -1)
+if [ -n "$PID" ]; then taskkill //F //PID "$PID" || true; fi
+sleep 2
+cd /e/work/backend
+JWT_SECRET="$(openssl rand -base64 64 | tr -d '\n')" \
+SPRING_PROFILES_ACTIVE=mysql \
+MYSQL_HOST=127.0.0.1 MYSQL_PORT=3306 MYSQL_DATABASE=offerpilot \
+MYSQL_USER=root MYSQL_PASSWORD=1234 \
+nohup mvn spring-boot:run > /tmp/offerpilot-mysql.log 2>&1 &
+for i in $(seq 1 60); do
+  if curl -sf http://localhost:8080/actuator/health >/dev/null; then echo "BACKEND_UP"; break; fi
+  sleep 2
+done
+curl -s http://localhost:8080/actuator/health
+```
+Expected: 输出包含 `"status":"UP"`。
+
+- [ ] **Step 3: 确认 Flyway V9 已应用到本地 MySQL**
 
 Run:
 ```bash
-cd /e/work
-docker compose ps
-curl -s -o /dev/null -w "frontend=%{http_code}\n" http://localhost:8088/
-curl -s -o /dev/null -w "api_via_nginx=%{http_code}\n" http://localhost:8088/api/job-templates
+mysql -uroot -p1234 -h127.0.0.1 offerpilot -e "SELECT version,description,success FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 2;"
 ```
-Expected: `backend`、`frontend` 均为 `Up`/`healthy`；两个状态码均为 `200`；后端日志显示 Flyway 已应用 V9 迁移。
+Expected: 输出包含 `9 admin and quota 1`。
 
-- [ ] **Step 3: 浏览器验收**
+- [ ] **Step 4: 确认前端与 Vite 代理**
 
-打开 `http://localhost:8088`，完成：
+若 5173 未运行：
+```bash
+cd /e/work/frontend
+nohup npm run dev -- --host 127.0.0.1 > /tmp/offerpilot-vite.log 2>&1 &
+sleep 5
+```
+Run:
+```bash
+curl -s -o /dev/null -w "frontend=%{http_code}\n" http://127.0.0.1:5173/
+curl -s -o /dev/null -w "api_via_vite=%{http_code}\n" http://127.0.0.1:5173/api/job-templates
+```
+Expected: 两个状态码均为 `200`。
+
+- [ ] **Step 5: 浏览器验收**
+
+打开 `http://127.0.0.1:5173`，完成：
 
 1. 管理员登录：`admin@offerpilot.local / admin123`。
 2. 首页出现“题库管理”，进入后分页、搜索、新增、编辑、删除各一次。
 3. 退出登录，注册一个新普通用户。
-4. 上传 `backend/src/test` 之外任意 DOCX/PDF 简历（或使用演示用简历），创建面试。
+4. 上传任意 DOCX/PDF 简历（或使用演示用简历），创建面试。
 5. 进入面试间回答一题，确认 SSE 流式输出与追问正常。
 6. 结束面试，生成五维报告。
 7. 返回首页，打开创建面试弹窗，确认“今日剩余 X 场”显示正常。
 
-Expected: 上述 7 步全部成功，无控制台报错（favicon 已处理）。
+Expected: 上述 7 步全部成功，无控制台报错。
 
-- [ ] **Step 4: 通过 Nginx 做 1 用户冒烟压测**
+- [ ] **Step 6: 1 用户冒烟压测**
 
 Run:
 ```bash
 cd /e/work
-mkdir -p target/loadtest-nginx-smoke
-python scripts/load_test.py --users 1 --base-url http://localhost:8088 \
-  --output target/loadtest-nginx-smoke
+mkdir -p target/loadtest-local-smoke
+python scripts/load_test.py --users 1 --base-url http://localhost:8080 \
+  --output target/loadtest-local-smoke
 ```
-Expected: `"successRate": 100.0`，SSE 经过 Nginx 正常结束。
+Expected: `"successRate": 100.0`。
 
-- [ ] **Step 5: 执行 20 并发压测**
+- [ ] **Step 7: 执行 20 并发压测**
 
 Run:
 ```bash
 cd /e/work
-python scripts/load_test.py --users 20 --base-url http://localhost:8088 --output docs/reports
+python scripts/load_test.py --users 20 --base-url http://localhost:8080 --output docs/reports
 ```
 Expected: 退出码 0，`"successRate": 100.0`，生成 `docs/reports/load-test-20u.json` 与 `.md`。
 
-- [ ] **Step 6: 检查报告内容**
+- [ ] **Step 8: 检查报告内容**
 
 Run:
 ```bash
@@ -1192,7 +1232,7 @@ grep -q "不包含真实 LLM 延迟" docs/reports/load-test-20u.md && echo "NOTE
 ```
 Expected: `REPORT_OK 100.0 ...` 与 `NOTE_OK`。
 
-- [ ] **Step 7: 提交压测报告**
+- [ ] **Step 9: 提交压测报告**
 
 ```bash
 cd /e/work
@@ -1269,7 +1309,29 @@ Expected: `RESUME_OK 100.0 ...`。
 
 在“快速开始”之前加入：
 ```markdown
-## Docker 一键启动（推荐）
+## 本地运行（当前已验证）
+
+前置条件：本机 MySQL 已启动，存在 `offerpilot` 数据库，账号默认 `root/1234`。
+
+后端：
+
+```bash
+cd backend
+SPRING_PROFILES_ACTIVE=mysql MYSQL_HOST=127.0.0.1 MYSQL_PORT=3306 \
+MYSQL_DATABASE=offerpilot MYSQL_USER=root MYSQL_PASSWORD=1234 \
+mvn spring-boot:run
+```
+
+前端：
+
+```bash
+cd frontend
+npm run dev
+```
+
+访问 http://localhost:5173。
+
+## Docker 一键启动（需 Docker Desktop/WSL2）
 
 Windows PowerShell：
 ```powershell
@@ -1285,13 +1347,15 @@ bash scripts/docker-up.sh
 
 前置条件：本机 MySQL 已启动，存在 `offerpilot` 数据库，`.env` 中默认使用 `root/1234`。如本机账号密码不同，请修改 `.env` 的 `MYSQL_USER`、`MYSQL_PASSWORD`、`MYSQL_DATABASE`。容器内通过 `host.docker.internal:3306` 访问宿主 MySQL。
 
+> 本次 W6 验收因本机 Docker Desktop/WSL2 未就绪，使用“本地运行”路径完成；Docker 容器启动验证待环境恢复后补做。
+
 常用命令：
 
 ```bash
 docker compose logs -f backend   # 后端日志
 docker compose ps                # 服务状态
 bash scripts/docker-down.sh      # 停止
-bash scripts/docker-down.sh -v   # 停止并清空 MySQL 与上传文件
+bash scripts/docker-down.sh -v   # 停止并清空上传文件
 ```
 
 可选基础设施（当前业务未使用）：
@@ -1306,8 +1370,10 @@ docker compose --profile infra up -d
 ## 压测
 
 ```bash
-python scripts/load_test.py --users 20 --base-url http://localhost:8088
+python scripts/load_test.py --users 20 --base-url http://localhost:8080
 ```
+
+若使用 Docker 栈，将 `--base-url` 改为 `http://localhost:8088`。
 
 报告输出到 `docs/reports/load-test-20u.json` 与 `docs/reports/load-test-20u.md`。默认 Mock AI，不产生 DeepSeek 费用。
 

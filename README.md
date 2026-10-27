@@ -205,6 +205,8 @@ mvn spring-boot:run
 
 AI 调用失败会自动回退 Mock 生成器，不会阻塞面试创建。上传的简历默认保存在 `backend/data/uploads`，可通过 `OFFERPILOT_UPLOAD_DIR` 修改。
 
+简历解析：`APP_AI_ENABLED=true` 时使用当前用户激活的 Provider 提取姓名、联系方式、技能、项目、教育等字段；AI 返回字段缺失或格式不规范时会自动归一化，并用规则解析补齐；AI 整体失败时回退到规则解析。上传同步完成，通常需要数秒。
+
 ## 用户 API 设置（BYOK）
 
 每个用户可以在首页「API 设置」中保存自己的 Provider，面试、评估和报告会使用当前激活的配置：

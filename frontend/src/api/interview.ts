@@ -47,6 +47,69 @@ export interface CreateInterviewRequest {
   mode: string
 }
 
+export interface ReportDimensions {
+  accuracy: number
+  depth: number
+  project: number
+  expression: number
+  match: number
+}
+
+export interface QuestionReview {
+  questionId: number
+  seq: number
+  type: string
+  question: string
+  answer: string
+  promptType: string | null
+  promptText: string | null
+  correctness: string
+  score: number
+  comment: string
+  missingPoints: string[]
+}
+
+export interface InterviewReport {
+  id: number
+  sessionId: number
+  jobTitle: string
+  mode: string
+  overallScore: number
+  dimensions: ReportDimensions
+  summary: string
+  strengths: string[]
+  weaknesses: string[]
+  suggestions: string[]
+  status: string
+  createdAt: string
+  questionReviews: QuestionReview[]
+}
+
+export interface InterviewHistoryItem {
+  sessionId: number
+  jobTitle: string
+  mode: string
+  status: string
+  totalScore: number | null
+  createdAt: string
+  hasReport: boolean
+}
+
+export interface ScorePoint {
+  date: string
+  score: number
+  jobTitle: string
+}
+
+export interface StatsOverview {
+  totalInterviews: number
+  completedInterviews: number
+  averageScore: number
+  bestScore: number
+  dimensionAverages: ReportDimensions
+  scoreTrend: ScorePoint[]
+}
+
 export interface AnswerEvaluationView {
   id: number
   candidateMessageId: number
@@ -86,6 +149,14 @@ export const interviewApi = {
   get: (id: number) => http.get<never, InterviewSession>(`/interviews/${id}`),
 
   list: () => http.get<never, InterviewSession[]>('/interviews'),
+
+  generateReport: (id: number) => http.post<never, InterviewReport>(`/interviews/${id}/report`),
+
+  getReport: (id: number) => http.get<never, InterviewReport>(`/interviews/${id}/report`),
+
+  history: () => http.get<never, InterviewHistoryItem[]>('/interviews/history'),
+
+  stats: () => http.get<never, StatsOverview>('/stats/overview'),
 
   start: (id: number) => http.post<never, InterviewSession>(`/interviews/${id}/start`),
 

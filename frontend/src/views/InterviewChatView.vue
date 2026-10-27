@@ -299,9 +299,15 @@ function backToPreview() {
       </section>
 
       <section v-else class="finished">
-        <el-result icon="success" title="面试已结束" sub-title="评分报告与薄弱点分析将在 W4 开放">
+        <el-result icon="success" title="面试已结束" sub-title="查看五维评分报告，复盘本场表现。">
           <template #extra>
-            <el-button type="primary" @click="router.push('/')">返回岗位</el-button>
+            <el-button
+              type="primary"
+              @click="router.push(`/interviews/${route.params.id}/report`)"
+            >
+              查看报告
+            </el-button>
+            <el-button @click="router.push('/')">返回岗位</el-button>
           </template>
         </el-result>
       </section>

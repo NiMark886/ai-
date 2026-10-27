@@ -2,9 +2,9 @@
 
 面向 Java 后端 / Java+AI 求职者的垂直 AI 模拟面试教练。
 
-当前进度：P0 Week 3 + 练习模式实时点评（多轮对话、SSE、追问/提示/跳过、逐题即时点评）。
+当前进度：P0 Week 4 已完成（五维评分报告、逐题复盘、成长记录与统计图表）。
 
-下一步：P0 Week 4（五维报告、历史成长曲线）。
+下一步：P0 Week 5（题库 RAG、薄弱点推荐、运营后台、额度限流）。
 
 ## 目录
 
@@ -84,6 +84,10 @@ mvn test
 | POST | `/api/interviews/{id}/skip` | 跳过当前题 |
 | POST | `/api/interviews/{id}/finish` | 结束面试 |
 | GET | `/api/interviews/{id}/evaluations` | 练习模式逐题点评 |
+| POST | `/api/interviews/{id}/report` | 生成/获取五维报告 |
+| GET | `/api/interviews/{id}/report` | 查询五维报告 |
+| GET | `/api/interviews/history` | 面试历史 |
+| GET | `/api/stats/overview` | 成长统计 |
 
 ## AI 配置（可选）
 
@@ -105,6 +109,16 @@ mvn spring-boot:run
 ```
 
 AI 调用失败会自动回退 Mock 生成器，不会阻塞面试创建。上传的简历默认保存在 `backend/data/uploads`，可通过 `OFFERPILOT_UPLOAD_DIR` 修改。
+
+## 报告与成长
+
+面试结束后可生成五维评分报告：
+
+- 技术准确性、技术深度、项目表现、表达逻辑、岗位匹配度
+- 逐题复盘：回答、正确性、得分、点评、缺失要点
+- 成长记录：总场次、完成场次、平均分、最高分、分数趋势、五维平均
+
+前端报告页：`/interviews/{id}/report`；成长页：`/history`。
 
 ## 练习模式
 

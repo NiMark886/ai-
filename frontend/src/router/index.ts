@@ -34,6 +34,18 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      path: '/interviews/:id/report',
+      name: 'interview-report',
+      component: () => import('@/views/InterviewReportView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/history',
+      name: 'history',
+      component: () => import('@/views/InterviewHistoryView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/:pathMatch(.*)*',
       redirect: '/'
     }

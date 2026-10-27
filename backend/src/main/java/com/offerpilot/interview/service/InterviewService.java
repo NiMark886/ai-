@@ -24,10 +24,11 @@ import com.offerpilot.resume.domain.Resume;
 import com.offerpilot.resume.domain.ResumeProfile;
 import com.offerpilot.resume.mapper.ResumeMapper;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 public class InterviewService {
@@ -40,6 +41,7 @@ public class InterviewService {
     private final QuestionBankRetriever questionBankRetriever;
     private final QuotaService quotaService;
     private final ObjectMapper objectMapper;
+    private final TransactionTemplate transactionTemplate;
 
     public InterviewService(InterviewSessionMapper sessionMapper,
                             InterviewQuestionMapper questionMapper,
@@ -48,7 +50,8 @@ public class InterviewService {
                             InterviewBlueprintGenerator blueprintGenerator,
                             QuestionBankRetriever questionBankRetriever,
                             QuotaService quotaService,
-                            ObjectMapper objectMapper) {
+                            ObjectMapper objectMapper,
+                            TransactionTemplate transactionTemplate) {
         this.sessionMapper = sessionMapper;
         this.questionMapper = questionMapper;
         this.jobTemplateMapper = jobTemplateMapper;
@@ -57,9 +60,9 @@ public class InterviewService {
         this.questionBankRetriever = questionBankRetriever;
         this.quotaService = quotaService;
         this.objectMapper = objectMapper;
+        this.transactionTemplate = transactionTemplate;
     }
 
-    @Transactional
     public InterviewSessionView create(Long userId, CreateInterviewRequest request) {
         JobTemplate job = jobTemplateMapper.selectById(request.jobTemplateId());
         if (job == null || !"ACTIVE".equals(job.getStatus())) {
@@ -78,26 +81,29 @@ public class InterviewService {
             tags.addAll(profile.skills());
         }
         var retrieved = questionBankRetriever.retrieve(job.getJdText(), tags, 8);
+        quotaService.checkAvailable(userId);
         InterviewBlueprint blueprint = blueprintGenerator.generate(new BlueprintRequest(
                 job, profile, request.difficulty(), request.durationMinutes(), request.persona(), retrieved));
 
-        quotaService.checkAndConsumeSession(userId);
+        return Objects.requireNonNull(transactionTemplate.execute(status -> {
+            quotaService.checkAndConsumeSession(userId);
 
-        InterviewSession session = new InterviewSession();
-        session.setUserId(userId);
-        session.setJobTemplateId(job.getId());
-        session.setResumeId(resume.getId());
-        session.setDifficulty(request.difficulty());
-        session.setDurationMinutes(request.durationMinutes());
-        session.setPersona(request.persona());
-        String mode = "PRACTICE".equalsIgnoreCase(request.mode()) ? "PRACTICE" : "INTERVIEW";
-        session.setMode(mode);
-        session.setStatus("READY");
-        session.setBlueprintJson(writeJson(blueprint));
-        sessionMapper.insert(session);
+            InterviewSession session = new InterviewSession();
+            session.setUserId(userId);
+            session.setJobTemplateId(job.getId());
+            session.setResumeId(resume.getId());
+            session.setDifficulty(request.difficulty());
+            session.setDurationMinutes(request.durationMinutes());
+            session.setPersona(request.persona());
+            String mode = "PRACTICE".equalsIgnoreCase(request.mode()) ? "PRACTICE" : "INTERVIEW";
+            session.setMode(mode);
+            session.setStatus("READY");
+            session.setBlueprintJson(writeJson(blueprint));
+            sessionMapper.insert(session);
 
-        List<QuestionView> questions = saveQuestions(session.getId(), blueprint);
-        return toView(session, job.getTitle(), questions);
+            List<QuestionView> questions = saveQuestions(session.getId(), blueprint);
+            return toView(session, job.getTitle(), questions);
+        }));
     }
 
     public InterviewSessionView get(Long userId, Long sessionId) {

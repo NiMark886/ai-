@@ -34,17 +34,30 @@ public class QuotaService {
     }
 
     @Transactional
+    public void checkAvailable(Long userId) {
+        if (!enforce || isAdmin()) {
+            return;
+        }
+        requireAvailable(userId);
+    }
+
+    @Transactional
     public void checkAndConsumeSession(Long userId) {
         if (!enforce || isAdmin()) {
             return;
         }
+        UserQuota quota = requireAvailable(userId);
+        quota.setSessionUsed(quota.getSessionUsed() + 1);
+        quotaMapper.updateById(quota);
+    }
+
+    private UserQuota requireAvailable(Long userId) {
         UserQuota quota = getOrCreate(userId);
         resetIfNeeded(quota);
         if (quota.getSessionUsed() >= quota.getSessionLimit()) {
             throw new BusinessException(ErrorCode.QUOTA_EXCEEDED, "今日面试额度已用完");
         }
-        quota.setSessionUsed(quota.getSessionUsed() + 1);
-        quotaMapper.updateById(quota);
+        return quota;
     }
 
     public QuotaView me(Long userId) {

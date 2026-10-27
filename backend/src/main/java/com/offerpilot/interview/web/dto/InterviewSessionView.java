@@ -11,6 +11,7 @@ public record InterviewSessionView(
         String difficulty,
         Integer durationMinutes,
         String persona,
+        String mode,
         String status,
         Long currentQuestionId,
         LocalDateTime createdAt,

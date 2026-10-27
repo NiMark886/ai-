@@ -10,6 +10,7 @@ public record CreateInterviewRequest(
         @NotNull Long resumeId,
         @NotBlank String difficulty,
         @NotNull @Min(10) @Max(60) Integer durationMinutes,
-        @NotBlank String persona
+        @NotBlank String persona,
+        String mode
 ) {
 }

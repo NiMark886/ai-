@@ -74,6 +74,8 @@ public class InterviewService {
         session.setDifficulty(request.difficulty());
         session.setDurationMinutes(request.durationMinutes());
         session.setPersona(request.persona());
+        String mode = "PRACTICE".equalsIgnoreCase(request.mode()) ? "PRACTICE" : "INTERVIEW";
+        session.setMode(mode);
         session.setStatus("READY");
         session.setBlueprintJson(writeJson(blueprint));
         sessionMapper.insert(session);
@@ -161,6 +163,7 @@ public class InterviewService {
                 session.getDifficulty(),
                 session.getDurationMinutes(),
                 session.getPersona(),
+                session.getMode(),
                 session.getStatus(),
                 session.getCurrentQuestionId(),
                 session.getCreatedAt(),

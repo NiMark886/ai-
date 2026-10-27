@@ -31,6 +31,8 @@ public class InterviewSession {
 
     private String persona;
 
+    private String mode;
+
     private String status;
 
     private Long currentQuestionId;

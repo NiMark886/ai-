@@ -56,7 +56,7 @@ class InterviewConversationServiceTest {
         Resume resume = createResume(user);
         Long jobId = jobTemplateMapper.selectList(null).get(0).getId();
         InterviewSessionView session = interviewService.create(user.getId(),
-                new CreateInterviewRequest(jobId, resume.getId(), "STANDARD", 30, "STANDARD"));
+                new CreateInterviewRequest(jobId, resume.getId(), "STANDARD", 30, "STANDARD", "INTERVIEW"));
 
         InterviewSessionView started = conversationService.start(user.getId(), session.id());
         assertThat(started.status()).isEqualTo("IN_PROGRESS");

@@ -8,6 +8,7 @@ const router = useRouter()
 
 const session = ref<InterviewSession | null>(null)
 const loading = ref(true)
+const starting = ref(false)
 
 const typeLabels: Record<string, string> = {
   BASIC: '基础',
@@ -49,6 +50,17 @@ onMounted(async () => {
 function backHome() {
   router.push('/')
 }
+
+async function startInterview() {
+  if (!session.value) return
+  starting.value = true
+  try {
+    await interviewApi.start(session.value.id)
+    router.push(`/interviews/${session.value.id}/chat`)
+  } finally {
+    starting.value = false
+  }
+}
 </script>
 
 <template>
@@ -72,7 +84,9 @@ function backHome() {
               <span>{{ session.persona === 'PRESSURE' ? '压力面' : session.persona === 'GENTLE' ? '温和' : '标准' }}</span>
             </div>
           </div>
-          <el-button type="primary" size="large" disabled>开始答题（W3 开放）</el-button>
+          <el-button type="primary" size="large" :loading="starting" @click="startInterview">
+            开始答题
+          </el-button>
         </section>
 
         <section v-for="group in groupedQuestions" :key="group.type" class="question-group">

@@ -12,6 +12,7 @@ public record InterviewSessionView(
         Integer durationMinutes,
         String persona,
         String status,
+        Long currentQuestionId,
         LocalDateTime createdAt,
         List<QuestionView> questions
 ) {

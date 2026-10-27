@@ -33,6 +33,8 @@ public class InterviewSession {
 
     private String status;
 
+    private Long currentQuestionId;
+
     private String blueprintJson;
 
     private Integer totalScore;

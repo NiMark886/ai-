@@ -34,6 +34,14 @@ public class InterviewQuestion {
 
     private String followUpHints;
 
+    private Integer followUpCount;
+
+    private Integer hintCount;
+
+    private LocalDateTime askedAt;
+
+    private LocalDateTime answeredAt;
+
     private String status;
 
     @TableField(fill = FieldFill.INSERT)

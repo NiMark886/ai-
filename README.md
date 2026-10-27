@@ -171,6 +171,14 @@ python scripts/load_test.py --users 20 --base-url http://localhost:8080
 | GET | `/api/stats/overview` | 成长统计 |
 | GET | `/api/stats/weaknesses` | 薄弱点与推荐题目 |
 | GET | `/api/quota/me` | 当前用户额度（默认不限） |
+| GET | `/api/ai/providers` | 当前用户的 AI Provider 列表 |
+| GET | `/api/ai/providers/presets` | DeepSeek / MiMo / 自定义预设 |
+| GET | `/api/ai/providers/status` | 真实 AI 开关与默认模型 |
+| POST | `/api/ai/providers` | 新增 AI Provider |
+| PUT | `/api/ai/providers/{id}` | 编辑 AI Provider |
+| DELETE | `/api/ai/providers/{id}` | 删除 AI Provider |
+| POST | `/api/ai/providers/{id}/activate` | 设为当前 Provider |
+| POST | `/api/ai/providers/{id}/test` | 测试连接 |
 | GET | `/api/admin/questions` | 管理员题库分页 |
 | POST | `/api/admin/questions` | 管理员新增题目 |
 | PUT | `/api/admin/questions/{id}` | 管理员编辑题目 |
@@ -196,6 +204,22 @@ mvn spring-boot:run
 ```
 
 AI 调用失败会自动回退 Mock 生成器，不会阻塞面试创建。上传的简历默认保存在 `backend/data/uploads`，可通过 `OFFERPILOT_UPLOAD_DIR` 修改。
+
+## 用户 API 设置（BYOK）
+
+每个用户可以在首页「API 设置」中保存自己的 Provider，面试、评估和报告会使用当前激活的配置：
+
+| 预设 | Base URL | 模型 |
+|---|---|---|
+| DeepSeek | `https://api.deepseek.com` | `deepseek-chat` |
+| 小米 MiMo | `https://api.xiaomimimo.com/v1` | `mimo-v2.5` |
+| MiMo Token Plan | `https://token-plan-cn.xiaomimimo.com/v1` | `mimo-v2.5` |
+| 自定义 | 用户填写 | 用户填写 |
+
+- API Key 使用 AES-GCM 加密存储，接口只返回 `sk-****abcd` 掩码，不会明文回显。
+- 每个用户只能看到和操作自己的配置。
+- 未配置时使用系统默认配置；`APP_AI_ENABLED=false` 时全部使用 Mock，设置页会提示。
+- 生产环境建议单独设置 `AI_SETTINGS_SECRET`；未设置时从 `JWT_SECRET` 派生。更换该密钥会导致已保存的 API Key 无法解密。
 
 ## 题库与薄弱点
 

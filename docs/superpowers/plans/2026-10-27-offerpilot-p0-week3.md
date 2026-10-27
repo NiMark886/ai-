@@ -2346,3 +2346,24 @@ Expected: 工作区干净。
 - **Placeholder scan:** 没有 TBD/TODO；所有代码步骤都有完整代码。
 - **Type consistency:** `InterviewSession.currentQuestionId`、`QuestionView.status/followUpCount/hintCount`、`AnswerRequest`、`AnswerResult`、`HintResult`、`MessageView` 在后端与前端保持一致；SSE 事件名 `meta/delta/done/error` 与前端解析一致。
 - **默认可用性:** `app.ai.enabled=false` 时全部功能可用；开启 AI 后 `SpringAiInterviewerReplyGenerator` 优先，失败自动回退 Mock。
+
+---
+
+## 执行记录（2026-10-27）
+
+- 分支：`feat/p0-week3`（基于 `feat/p0-week2`）。
+- 后端测试：`mvn -f backend/pom.xml test` → **28 tests, 0 failures, 0 errors**。
+- 前端构建：`npm --prefix frontend run build` → 成功。
+- 浏览器端到端（Playwright + Chrome）：
+  - 注册 → 上传 DOCX → 创建面试 → 蓝图预览 → 点击“开始答题”进入聊天页。
+  - 首条消息为面试官开场白 + 第一题。
+  - 输入“不知道”提交 → SSE 流式返回追问「扩容后元素如何重新分布？」。
+  - 点击“提示” → 出现系统提示消息「可以从数组+链表+红黑树入手」。
+  - 点击“跳过” → 进入下一题「线程池的核心参数有哪些？」。
+  - 点击“结束面试”并确认 → 状态变为“面试已结束”，显示 W4 报告占位。
+  - 消息历史共 6 条（面试官开场、候选人回答、追问、系统提示、下一题、结束语）。
+- 实施中的调整：
+  - `InterviewConversationService` 内部消息历史使用 `history(sessionId)`，避免与对外 `messages(userId, sessionId)` 混淆。
+  - `SecurityConfig` 增加 `DispatcherType.ASYNC` / `ERROR` 放行，解决 MockMvc SSE 异步派发被 Spring Security 拦截的问题。
+  - 前端 SSE 客户端使用 `fetch + ReadableStream`，解析 `meta/delta/done/error` 事件；流结束缺少 `done` 时有兜底刷新。
+- 尚未推送：W3 分支提交在本地；W2 的 PR #2 仍未合并。

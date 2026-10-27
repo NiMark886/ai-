@@ -2,9 +2,9 @@
 
 面向 Java 后端 / Java+AI 求职者的垂直 AI 模拟面试教练。
 
-当前进度：P0 Week 2 已完成（简历上传解析、创建面试、面试蓝图、前端创建弹窗与预览页）。
+当前进度：P0 Week 3 已完成（多轮对话、SSE 流式、追问/提示/跳过、面试状态机）。
 
-下一步：P0 Week 3（多轮对话、SSE、追问/提示/跳过、状态机）。
+下一步：P0 Week 4（单题评分、五维报告、历史成长曲线）。
 
 ## 目录
 
@@ -77,6 +77,12 @@ mvn test
 | POST | `/api/interviews` | 创建面试并生成蓝图 |
 | GET | `/api/interviews/{id}` | 面试详情与题目 |
 | GET | `/api/interviews` | 面试历史 |
+| POST | `/api/interviews/{id}/start` | 开始面试 |
+| GET | `/api/interviews/{id}/messages` | 面试消息历史 |
+| POST | `/api/interviews/{id}/answers` | 提交回答（SSE 流式返回） |
+| POST | `/api/interviews/{id}/hint` | 请求提示（每题 1 次） |
+| POST | `/api/interviews/{id}/skip` | 跳过当前题 |
+| POST | `/api/interviews/{id}/finish` | 结束面试 |
 
 ## AI 配置（可选）
 

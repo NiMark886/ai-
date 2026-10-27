@@ -63,9 +63,6 @@ public class MockAnswerEvaluator implements AnswerEvaluator {
         }
 
         String comment = "覆盖了 " + matched + "/" + points.size() + " 个参考要点。";
-        if (!missing.isEmpty()) {
-            comment += " 建议补充：" + String.join("、", missing.subList(0, Math.min(2, missing.size()))) + "。";
-        }
         double confidence = Math.min(0.9, 0.6 + 0.3 * ratio);
         return new AnswerEvaluationResult(correctness, score, comment, missing, confidence);
     }

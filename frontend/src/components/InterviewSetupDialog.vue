@@ -25,7 +25,8 @@ const form = reactive({
   resumeId: undefined as number | undefined,
   difficulty: 'STANDARD',
   durationMinutes: 30,
-  persona: 'STANDARD'
+  persona: 'STANDARD',
+  mode: 'INTERVIEW'
 })
 
 const visible = computed({
@@ -90,7 +91,8 @@ async function submit() {
       resumeId: form.resumeId,
       difficulty: form.difficulty,
       durationMinutes: form.durationMinutes,
-      persona: form.persona
+      persona: form.persona,
+      mode: form.mode
     })
     ElMessage.success('面试已创建')
     emit('created', session)
@@ -166,6 +168,17 @@ async function submit() {
             项目：{{ selectedResume.profile.projects?.map((p) => p.name).join('、') }}
           </p>
         </div>
+      </section>
+
+      <section class="field-block">
+        <div class="field-title"><span>模式</span></div>
+        <el-radio-group v-model="form.mode">
+          <el-radio-button value="INTERVIEW">模拟面试</el-radio-button>
+          <el-radio-button value="PRACTICE">练习模式（实时点评）</el-radio-button>
+        </el-radio-group>
+        <p v-if="form.mode === 'PRACTICE'" class="mode-hint">
+          每题回答后会立即显示正确性点评，适合刷题练习。
+        </p>
       </section>
 
       <section class="field-block">
@@ -269,5 +282,11 @@ async function submit() {
   color: #6b7a8c;
   font-size: 13px;
   line-height: 1.6;
+}
+
+.mode-hint {
+  margin: 8px 0 0;
+  color: #8a97a8;
+  font-size: 12px;
 }
 </style>

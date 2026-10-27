@@ -2,9 +2,9 @@
 
 面向 Java 后端 / Java+AI 求职者的垂直 AI 模拟面试教练。
 
-当前进度：P0 Week 3 已完成（多轮对话、SSE 流式、追问/提示/跳过、面试状态机）。
+当前进度：P0 Week 3 + 练习模式实时点评（多轮对话、SSE、追问/提示/跳过、逐题即时点评）。
 
-下一步：P0 Week 4（单题评分、五维报告、历史成长曲线）。
+下一步：P0 Week 4（五维报告、历史成长曲线）。
 
 ## 目录
 
@@ -83,6 +83,7 @@ mvn test
 | POST | `/api/interviews/{id}/hint` | 请求提示（每题 1 次） |
 | POST | `/api/interviews/{id}/skip` | 跳过当前题 |
 | POST | `/api/interviews/{id}/finish` | 结束面试 |
+| GET | `/api/interviews/{id}/evaluations` | 练习模式逐题点评 |
 
 ## AI 配置（可选）
 
@@ -104,6 +105,17 @@ mvn spring-boot:run
 ```
 
 AI 调用失败会自动回退 Mock 生成器，不会阻塞面试创建。上传的简历默认保存在 `backend/data/uploads`，可通过 `OFFERPILOT_UPLOAD_DIR` 修改。
+
+## 练习模式
+
+创建面试时选择“练习模式（实时点评）”，每回答一题会立即返回：
+
+- 正确性：正确 / 部分正确 / 需补充 / 不正确
+- 1–5 分
+- 一句点评
+- 缺失要点
+
+默认使用基于参考要点的 Mock 评估；`APP_AI_ENABLED=true` 时使用 Spring AI 评估，失败自动回退 Mock。普通“模拟面试”模式不显示即时点评。
 
 ## 开发约定
 

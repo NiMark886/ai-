@@ -21,6 +21,7 @@ export interface InterviewSession {
   difficulty: string
   durationMinutes: number
   persona: string
+  mode: string
   status: string
   currentQuestionId: number | null
   createdAt: string
@@ -43,6 +44,19 @@ export interface CreateInterviewRequest {
   difficulty: string
   durationMinutes: number
   persona: string
+  mode: string
+}
+
+export interface AnswerEvaluationView {
+  id: number
+  candidateMessageId: number
+  questionId: number
+  correctness: 'CORRECT' | 'PARTIAL' | 'INSUFFICIENT' | 'INCORRECT'
+  score: number
+  comment: string
+  missingPoints: string[]
+  confidence: number
+  createdAt: string
 }
 
 export interface HintResult {
@@ -51,8 +65,14 @@ export interface HintResult {
 }
 
 export interface StreamHandlers {
-  onMeta?: (meta: { interviewerMessageId: number; questionId: number; replyType: string }) => void
+  onMeta?: (meta: {
+    candidateMessageId: number
+    interviewerMessageId: number
+    questionId: number
+    replyType: string
+  }) => void
   onDelta?: (text: string) => void
+  onEvaluation?: (evaluation: AnswerEvaluationView) => void
   onDone?: (done: { sessionStatus: string; currentQuestionId: number | null; completed: boolean }) => void
   onError?: (message: string) => void
 }
@@ -68,6 +88,8 @@ export const interviewApi = {
   start: (id: number) => http.post<never, InterviewSession>(`/interviews/${id}/start`),
 
   messages: (id: number) => http.get<never, MessageView[]>(`/interviews/${id}/messages`),
+
+  evaluations: (id: number) => http.get<never, AnswerEvaluationView[]>(`/interviews/${id}/evaluations`),
 
   hint: (id: number) => http.post<never, HintResult>(`/interviews/${id}/hint`),
 
@@ -132,6 +154,7 @@ export async function streamAnswer(
       const payload = JSON.parse(data)
       if (event === 'meta') handlers.onMeta?.(payload)
       else if (event === 'delta') handlers.onDelta?.(payload.text)
+      else if (event === 'evaluation') handlers.onEvaluation?.(payload)
       else if (event === 'done') handlers.onDone?.(payload)
       else if (event === 'error') handlers.onError?.(payload.message)
     }

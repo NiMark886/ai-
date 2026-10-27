@@ -1193,3 +1193,21 @@ git commit -m "feat: add practice mode real-time answer evaluation"
 - **Placeholder scan:** 没有 TBD/TODO；代码完整。
 - **Type consistency:** `mode`、`AnswerEvaluationResult`、`AnswerEvaluationView`、`AnswerResult.evaluation`、SSE `evaluation` 事件、前端 `AnswerEvaluationView` 字段一致。
 - **默认可用性:** `app.ai.enabled=false` 时 Mock 评估可用；开启 AI 后优先 Spring AI，失败回退 Mock。
+
+---
+
+## 执行记录（2026-10-27）
+
+- 分支：`feat/practice-evaluation`（基于 `feat/p0-week3`）。
+- 后端测试：`mvn -f backend/pom.xml test` → 通过（含 V5 迁移、Mock 评估器、练习模式 SSE、点评持久化）。
+- 前端构建：`npm --prefix frontend run build` → 成功。
+- 浏览器端到端（Playwright + Chrome）：
+  - 创建面试时选择“练习模式（实时点评）”。
+  - 回答「HashMap 底层是数组、链表和红黑树，扩容时容量翻倍」。
+  - 点评卡片显示：正确、4/5、覆盖了 2/3 个参考要点、建议补充「链表转红黑树阈值 8」。
+  - 刷新页面后点评仍然存在（`GET /evaluations` 恢复）。
+- 实施中的调整：
+  - Mock 评估器的 `comment` 只输出覆盖情况，缺失要点由前端单独展示，避免“建议补充”重复。
+  - `meta` SSE 事件增加 `candidateMessageId`，前端把临时候选人消息 ID 替换为真实 ID，点评卡片能即时挂到对应回答下。
+  - 普通模拟面试模式不产生 `answer_evaluation`，不显示点评卡片。
+- 待推送：分支提交在本地，W3 的 PR #3 仍未合并。

@@ -37,7 +37,7 @@ public class SpringAiAnswerEvaluator implements AnswerEvaluator {
                             你是技术面试评分器。根据题目、参考要点和候选人回答判断回答正确性。
                             只输出 JSON，不要 markdown。JSON 字段：
                             correctness（CORRECT/PARTIAL/INSUFFICIENT/INCORRECT）、
-                            score（1-5）、comment（一句中文点评）、
+                            score（1-5）、comment（一句中文点评，不要重复列 missingPoints）、
                             missingPoints（字符串数组）、confidence（0-1）。
                             """)
                     .user("""

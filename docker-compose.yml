@@ -1,28 +1,42 @@
 name: offerpilot
 
 services:
-  mysql:
-    image: mysql:8.4
-    container_name: offerpilot-mysql
+  backend:
+    build:
+      context: ./backend
+    container_name: offerpilot-backend
     environment:
-      MYSQL_DATABASE: offerpilot
-      MYSQL_USER: offerpilot
-      MYSQL_PASSWORD: offerpilot
-      MYSQL_ROOT_PASSWORD: root
-      TZ: Asia/Shanghai
-    ports:
-      - "3306:3306"
+      SPRING_PROFILES_ACTIVE: mysql
+      MYSQL_HOST: ${DOCKER_MYSQL_HOST:-host.docker.internal}
+      MYSQL_PORT: "3306"
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-offerpilot}
+      MYSQL_USER: ${MYSQL_USER:-root}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-1234}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      APP_AI_ENABLED: ${APP_AI_ENABLED:-false}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      OFFERPILOT_UPLOAD_DIR: /app/data/uploads
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
-      - mysql-data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uofferpilot", "-pofferpilot"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
+      - upload-data:/app/data/uploads
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: offerpilot-frontend
+    ports:
+      - "${OFFERPILOT_HTTP_PORT:-8088}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
 
   redis:
     image: redis:7.4-alpine
     container_name: offerpilot-redis
+    profiles: ["infra"]
     ports:
       - "6379:6379"
     volumes:
@@ -31,6 +45,7 @@ services:
   postgres:
     image: pgvector/pgvector:pg16
     container_name: offerpilot-postgres
+    profiles: ["infra"]
     environment:
       POSTGRES_DB: offerpilot
       POSTGRES_USER: offerpilot
@@ -44,6 +59,7 @@ services:
   minio:
     image: minio/minio:latest
     container_name: offerpilot-minio
+    profiles: ["infra"]
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: offerpilot
@@ -55,7 +71,7 @@ services:
       - minio-data:/data
 
 volumes:
-  mysql-data:
+  upload-data:
   redis-data:
   postgres-data:
   minio-data:

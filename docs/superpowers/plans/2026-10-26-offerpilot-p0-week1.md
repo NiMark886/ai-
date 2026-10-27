@@ -3783,3 +3783,18 @@ Expected: `git status` 输出为空（工作区干净）。
 - **Spec coverage:** W1 的工程脚手架、数据库设计、登录注册、岗位模板均已覆盖；简历、面试、AI、SSE、RAG 明确留到 W2-W5。
 - **Placeholder scan:** 计划中没有 TBD/TODO；所有代码步骤都有完整代码。
 - **Type consistency:** `User`、`RefreshToken`、`JobTemplate`、`JwtService`、`RefreshTokenService`、`AuthService`、`TokenResponse` 的字段和方法在前后任务中保持一致；前端 `TokenResponse` 与后端 JSON 字段一致。
+
+---
+
+## 执行记录（2026-10-26）
+
+- 分支：`feat/p0-week1`（基于 `main` 的初始提交 `2e6cacd`）。
+- 提交：`156292e` → `ebb018e`，共 13 个提交。
+- 后端测试：`mvn -f backend/pom.xml test` → **11 tests, 0 failures, 0 errors**。
+- 前端构建：`npm --prefix frontend run build` → 成功。
+- 运行时验证：`/actuator/health`、`/api/job-templates`、`/v3/api-docs`、注册/登录/刷新令牌轮换均通过。
+- 浏览器验收（Playwright + Chrome）：注册 → 首页显示 4 张岗位卡片 → 退出登录 → 返回登录页，全部通过。
+- 实施中的两处调整：
+  - `mvn test` 配置 Surefire 同时匹配 `*Test.java` 与 `*IT.java`，确保集成测试默认执行。
+  - CORS 同时允许 `http://localhost:5173` 与 `http://127.0.0.1:5173`，便于本地浏览器验收。
+  - 前端构建脚本改为 `vue-tsc --noEmit && vite build`，避免 `vue-tsc -b` 在源码目录生成 `.js` / `.tsbuildinfo` 产物。

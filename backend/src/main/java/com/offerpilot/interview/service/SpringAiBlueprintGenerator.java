@@ -22,17 +22,20 @@ public class SpringAiBlueprintGenerator implements InterviewBlueprintGenerator {
     private final ObjectMapper objectMapper;
     private final ResumePromptMapper resumePromptMapper;
     private final AiCallExecutor aiCallExecutor;
+    private final InterviewBlueprintValidator blueprintValidator;
     private final MockBlueprintGenerator fallback;
 
     public SpringAiBlueprintGenerator(ChatClient.Builder builder,
                                       ObjectMapper objectMapper,
                                       ResumePromptMapper resumePromptMapper,
                                       AiCallExecutor aiCallExecutor,
+                                      InterviewBlueprintValidator blueprintValidator,
                                       MockBlueprintGenerator fallback) {
         this.chatClient = builder.build();
         this.objectMapper = objectMapper;
         this.resumePromptMapper = resumePromptMapper;
         this.aiCallExecutor = aiCallExecutor;
+        this.blueprintValidator = blueprintValidator;
         this.fallback = fallback;
     }
 
@@ -75,9 +78,7 @@ public class SpringAiBlueprintGenerator implements InterviewBlueprintGenerator {
                 response -> {
                     InterviewBlueprint blueprint = objectMapper.readValue(
                             cleanJson(response.getResult().getOutput().getText()), InterviewBlueprint.class);
-                    if (blueprint.sections() == null || blueprint.sections().isEmpty()) {
-                        throw new IllegalStateException("AI blueprint is empty");
-                    }
+                    blueprintValidator.validate(blueprint);
                     return blueprint;
                 },
                 () -> fallback.generate(request));

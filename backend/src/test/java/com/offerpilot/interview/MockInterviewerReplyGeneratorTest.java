@@ -35,6 +35,22 @@ class MockInterviewerReplyGeneratorTest {
     }
 
     @Test
+    void rotatesFollowUpHints() {
+        InterviewQuestion question = question(
+                "HashMap 的扩容机制？",
+                "[\"扩容 2 倍\"]",
+                "[\"追问一？\",\"追问二？\"]");
+
+        question.setFollowUpCount(1);
+        String first = generator.generate(question, ReplyType.FOLLOW_UP, null, List.of());
+        question.setFollowUpCount(2);
+        String second = generator.generate(question, ReplyType.FOLLOW_UP, null, List.of());
+
+        assertThat(first).contains("追问一");
+        assertThat(second).contains("追问二");
+    }
+
+    @Test
     void generatesClosing() {
         String reply = generator.generate(null, ReplyType.CLOSING, null, List.of());
 

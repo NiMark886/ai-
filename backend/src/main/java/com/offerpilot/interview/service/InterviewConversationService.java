@@ -273,11 +273,13 @@ public class InterviewConversationService {
     }
 
     private boolean shouldFollowUp(InterviewQuestion question, String answer) {
-        int count = question.getFollowUpCount() == null ? 0 : question.getFollowUpCount();
-        if (count >= 2) {
+        List<String> hints = readList(question.getFollowUpHints());
+        if (hints.isEmpty()) {
             return false;
         }
-        if (readList(question.getFollowUpHints()).isEmpty()) {
+        int count = question.getFollowUpCount() == null ? 0 : question.getFollowUpCount();
+        int maxFollowUps = Math.min(2, hints.size());
+        if (count >= maxFollowUps) {
             return false;
         }
         String text = answer == null ? "" : answer.trim();

@@ -110,6 +110,24 @@ class InterviewConversationServiceTest {
     }
 
     @Test
+    void limitsFollowUpsToAvailableHints() throws Exception {
+        User user = createUser();
+        Resume resume = createResume(user);
+        Long jobId = jobTemplateMapper.selectList(null).get(0).getId();
+        InterviewSessionView session = interviewService.create(user.getId(),
+                new CreateInterviewRequest(jobId, resume.getId(), "STANDARD", 30, "STANDARD", "INTERVIEW"));
+
+        InterviewSessionView started = conversationService.start(user.getId(), session.id());
+        AnswerResult first = conversationService.answer(user.getId(), session.id(),
+                new AnswerRequest(started.currentQuestionId(), "不知道"));
+        assertThat(first.replyType()).isEqualTo("FOLLOW_UP");
+
+        AnswerResult second = conversationService.answer(user.getId(), session.id(),
+                new AnswerRequest(started.currentQuestionId(), "不知道"));
+        assertThat(second.replyType()).isIn("QUESTION", "CLOSING");
+    }
+
+    @Test
     void practiceModeReturnsEvaluation() throws Exception {
         User user = createUser();
         Resume resume = createResume(user);

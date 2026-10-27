@@ -28,7 +28,9 @@ public class MockInterviewerReplyGenerator implements InterviewerReplyGenerator 
     private String followUp(InterviewQuestion question) {
         List<String> hints = readList(question.getFollowUpHints());
         if (!hints.isEmpty()) {
-            return "我想追问一下：" + hints.get(0);
+            int count = question.getFollowUpCount() == null ? 1 : question.getFollowUpCount();
+            int index = Math.max(0, Math.min(count - 1, hints.size() - 1));
+            return "我想追问一下：" + hints.get(index);
         }
         return "能结合一个具体例子，再展开说说吗？";
     }

@@ -4,7 +4,7 @@
 
 **Goal:** 完成 OfferPilot P0 Week 6 收尾：Docker Compose 一键部署、20 并发完整链路压测、3 分钟演示物料与文档。
 
-**Architecture:** 前端 Nginx 镜像同时托管 Vue SPA 并反向代理 `/api` 到后端；后端 Maven 多阶段构建为 JRE 镜像；Compose 默认只启动 `mysql + backend + frontend`，Redis/PostgreSQL/MinIO 放入 `infra` profile。压测脚本用 Python 线程池模拟 20 个独立用户跑完整链路，输出 JSON 与 Markdown 报告。
+**Architecture:** 前端 Nginx 镜像同时托管 Vue SPA 并反向代理 `/api` 到后端；后端 Maven 多阶段构建为 JRE 镜像；Compose 默认只启动 `backend + frontend`，后端通过 `host.docker.internal` 连接本机 MySQL（`root/1234`，库 `offerpilot`）；Redis/PostgreSQL/MinIO 放入 `infra` profile。压测脚本用 Python 线程池模拟 20 个独立用户跑完整链路，输出 JSON 与 Markdown 报告。
 
 **Tech Stack:** Java 21、Spring Boot 3.5、Maven、Vue3 + Vite、Nginx、Docker Compose、Python 3 + requests。
 
@@ -235,44 +235,25 @@ Replace `docker-compose.yml` with:
 name: offerpilot
 
 services:
-  mysql:
-    image: mysql:8.4
-    container_name: offerpilot-mysql
-    environment:
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-offerpilot}
-      MYSQL_USER: ${MYSQL_USER:-offerpilot}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-offerpilot}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
-      TZ: Asia/Shanghai
-    volumes:
-      - mysql-data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u$${MYSQL_USER} -p$${MYSQL_PASSWORD}"]
-      interval: 5s
-      timeout: 3s
-      retries: 30
-    restart: unless-stopped
-
   backend:
     build:
       context: ./backend
     container_name: offerpilot-backend
     environment:
       SPRING_PROFILES_ACTIVE: mysql
-      MYSQL_HOST: mysql
+      MYSQL_HOST: ${DOCKER_MYSQL_HOST:-host.docker.internal}
       MYSQL_PORT: "3306"
       MYSQL_DATABASE: ${MYSQL_DATABASE:-offerpilot}
-      MYSQL_USER: ${MYSQL_USER:-offerpilot}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-offerpilot}
+      MYSQL_USER: ${MYSQL_USER:-root}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-1234}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       APP_AI_ENABLED: ${APP_AI_ENABLED:-false}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
       OFFERPILOT_UPLOAD_DIR: /app/data/uploads
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - upload-data:/app/data/uploads
-    depends_on:
-      mysql:
-        condition: service_healthy
     restart: unless-stopped
 
   frontend:
@@ -324,7 +305,6 @@ services:
       - minio-data:/data
 
 volumes:
-  mysql-data:
   upload-data:
   redis-data:
   postgres-data:
@@ -338,14 +318,15 @@ Replace `.env.example` with:
 # Compose
 OFFERPILOT_HTTP_PORT=8088
 
-# Backend
+# Backend (local MySQL)
 JWT_SECRET=replace-with-a-base64-encoded-64-byte-secret
-MYSQL_HOST=localhost
+MYSQL_HOST=127.0.0.1
 MYSQL_PORT=3306
 MYSQL_DATABASE=offerpilot
-MYSQL_USER=offerpilot
-MYSQL_PASSWORD=offerpilot
-MYSQL_ROOT_PASSWORD=root
+MYSQL_USER=root
+MYSQL_PASSWORD=1234
+# Docker 容器内访问宿主 MySQL 的地址；Docker Desktop 默认 host.docker.internal
+DOCKER_MYSQL_HOST=host.docker.internal
 
 # AI providers (optional; default uses deterministic mock)
 APP_AI_ENABLED=false
@@ -370,7 +351,7 @@ docker compose --env-file .env.example config --services
 docker compose --env-file .env.example --profile infra config --services
 ```
 Expected:
-- 第一条输出 `mysql`、`backend`、`frontend`
+- 第一条输出 `backend`、`frontend`
 - 第二条额外输出 `redis`、`postgres`、`minio`
 
 - [ ] **Step 5: 提交**
@@ -408,6 +389,16 @@ docker info *> $null
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Docker daemon 未运行，请先启动 Docker Desktop"
     exit 1
+}
+
+$mysql = New-Object System.Net.Sockets.TcpClient
+try {
+    $mysql.Connect("127.0.0.1", 3306)
+} catch {
+    Write-Error "本地 MySQL 未启动或 3306 端口不可用，请先启动 MySQL 服务"
+    exit 1
+} finally {
+    $mysql.Dispose()
 }
 
 if (-not (Test-Path ".env")) {
@@ -478,6 +469,11 @@ fi
 
 if ! docker info >/dev/null 2>&1; then
   echo "Docker daemon 未运行，请先启动 Docker Desktop" >&2
+  exit 1
+fi
+
+if ! (echo > /dev/tcp/127.0.0.1/3306) >/dev/null 2>&1; then
+  echo "本地 MySQL 未启动或 3306 端口不可用，请先启动 MySQL 服务" >&2
   exit 1
 fi
 
@@ -1143,7 +1139,7 @@ docker compose ps
 curl -s -o /dev/null -w "frontend=%{http_code}\n" http://localhost:8088/
 curl -s -o /dev/null -w "api_via_nginx=%{http_code}\n" http://localhost:8088/api/job-templates
 ```
-Expected: `mysql`、`backend`、`frontend` 均为 `Up`/`healthy`；两个状态码均为 `200`。
+Expected: `backend`、`frontend` 均为 `Up`/`healthy`；两个状态码均为 `200`；后端日志显示 Flyway 已应用 V9 迁移。
 
 - [ ] **Step 3: 浏览器验收**
 
@@ -1286,6 +1282,8 @@ bash scripts/docker-up.sh
 ```
 
 访问 http://localhost:8088。首次启动会自动生成 `.env`（含随机 JWT_SECRET）并构建镜像。
+
+前置条件：本机 MySQL 已启动，存在 `offerpilot` 数据库，`.env` 中默认使用 `root/1234`。如本机账号密码不同，请修改 `.env` 的 `MYSQL_USER`、`MYSQL_PASSWORD`、`MYSQL_DATABASE`。容器内通过 `host.docker.internal:3306` 访问宿主 MySQL。
 
 常用命令：
 

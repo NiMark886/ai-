@@ -26,16 +26,18 @@ frontend（Nginx）
                       │
                       ▼
                   backend（Spring Boot，容器内 8080）
-                      ├─ mysql:3306（Flyway 自动迁移）
+                      ├─ host.docker.internal:3306 → 本地 MySQL（offerpilot）
                       └─ upload-data 卷（简历文件）
 ```
 
 设计要点：
 
+- 使用本机已安装的 MySQL：`127.0.0.1:3306`，账号 `root`，密码 `1234`，数据库 `offerpilot`；容器内通过 `host.docker.internal` 访问。
+- Compose 默认只启动 `backend + frontend`；不再启动 MySQL 容器。
 - 仅暴露 `frontend` 宿主端口，默认 `8088`，通过 `OFFERPILOT_HTTP_PORT` 覆盖；避免与本地 8080/3306 冲突。
-- `mysql` 健康检查通过后再启动 `backend`；`backend` actuator 健康后再启动 `frontend`。
+- `backend` actuator 健康后再启动 `frontend`。
 - Redis、PostgreSQL、MinIO 保留在 `infra` profile，默认不启动；当前业务未使用它们。
-- 上传文件与 MySQL 数据使用命名卷持久化。
+- 上传文件使用命名卷持久化；MySQL 数据由本地实例持久化。
 - AI 默认关闭（Mock 生成器），设置 `APP_AI_ENABLED=true` 与 `DEEPSEEK_API_KEY` 后启用真实 AI。
 
 ## 3. 容器与文件
@@ -70,10 +72,11 @@ frontend（Nginx）
 
 | 服务 | 说明 |
 |------|------|
-| `mysql` | MySQL 8.4，健康检查，命名卷 |
-| `backend` | 由 `backend/Dockerfile` 构建，依赖 mysql healthy |
+| `backend` | 由 `backend/Dockerfile` 构建，连接本地 MySQL（`host.docker.internal:3306`） |
 | `frontend` | 由 `frontend/Dockerfile` 构建，依赖 backend healthy，暴露 `${OFFERPILOT_HTTP_PORT:-8088}:80` |
 | `redis` / `postgres` / `minio` | `profiles: ["infra"]`，默认不启动 |
+
+本地 MySQL 前置条件：MySQL 服务已启动，存在 `offerpilot` 数据库，`root/1234` 可登录（可通过 `.env` 覆盖）。
 
 ### 3.4 一键脚本与环境变量
 
@@ -112,7 +115,7 @@ frontend（Nginx）
 
 ## 6. 验收标准
 
-1. 干净环境执行一键脚本或 `docker compose up -d --build`，mysql/backend/frontend 均 healthy。
+1. 本地 MySQL 已启动；执行一键脚本或 `docker compose up -d --build` 后，backend/frontend 均 healthy，Flyway 迁移成功。
 2. `http://localhost:8088` 可打开 SPA；管理员登录、创建面试、SSE 答题、生成报告正常。
 3. Nginx 反代 SSE 不缓冲、不截断。
 4. `python scripts/load_test.py --users 20` 成功完成，20 个虚拟用户全部成功（100%），生成 JSON 与 Markdown 报告。
@@ -122,9 +125,10 @@ frontend（Nginx）
 ## 7. 错误处理与运维
 
 - 启动脚本先检测 Docker daemon；未启动时给出“请先启动 Docker Desktop”提示。
+- 启动脚本检测本机 3306 端口；本地 MySQL 未启动时给出明确提示。
 - 宿主端口占用时提示修改 `OFFERPILOT_HTTP_PORT`。
 - `.env` 缺失时自动生成，`JWT_SECRET` 使用随机值；生产部署必须替换。
-- MySQL 健康检查失败或 Flyway 迁移失败时，提示查看 `docker compose logs mysql` / `backend`。
+- 本地 MySQL 连接失败或 Flyway 迁移失败时，提示查看 `docker compose logs backend` 与 MySQL 账号/库名配置。
 - 数据重置：`scripts/docker-down.* -v` 或 `docker compose down -v`。
 - 真实 AI 调用失败时沿用现有 Mock 回退逻辑，不阻塞面试创建。
 
@@ -138,6 +142,7 @@ frontend（Nginx）
 
 ## 9. 风险
 
+- 部署依赖本机 MySQL 服务；MySQL 未启动或密码不符时容器会不健康，README 说明排查方式。
 - 首次拉取镜像受网络影响，可能较慢；README 说明重试方式。
 - 压测指标随机器配置波动；报告记录本机环境，结论仅对本环境负责。
 - Nginx 与 SSE 的组合需实际浏览器验证，不能只依赖 curl。

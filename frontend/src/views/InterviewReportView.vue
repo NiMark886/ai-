@@ -19,6 +19,7 @@ const loading = ref(true)
 const error = ref('')
 const radarEl = ref<HTMLElement | null>(null)
 let radarChart: ReturnType<typeof echarts.init> | null = null
+let pollTimer: number | null = null
 
 const dimensions = computed(() => {
   const d = report.value?.dimensions
@@ -54,20 +55,54 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', resize)
+  clearPoll()
   radarChart?.dispose()
 })
 
 async function load() {
   loading.value = true
   error.value = ''
+  clearPoll()
   try {
-    report.value = await interviewApi.generateReport(Number(route.params.id))
-    await nextTick()
-    renderRadar()
+    const current = await interviewApi.generateReport(Number(route.params.id))
+    applyReport(current)
   } catch (e) {
     error.value = e instanceof Error ? e.message : '报告生成失败'
-  } finally {
     loading.value = false
+  }
+}
+
+function applyReport(current: InterviewReport) {
+  report.value = current
+  if (current.status === 'GENERATING') {
+    loading.value = true
+    pollTimer = window.setTimeout(pollReport, 1500)
+    return
+  }
+  if (current.status === 'FAILED') {
+    report.value = null
+    error.value = current.summary || '报告生成失败，请重试'
+    loading.value = false
+    return
+  }
+  loading.value = false
+  nextTick().then(renderRadar)
+}
+
+async function pollReport() {
+  try {
+    const current = await interviewApi.getReport(Number(route.params.id))
+    applyReport(current)
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : '报告生成失败'
+    loading.value = false
+  }
+}
+
+function clearPoll() {
+  if (pollTimer !== null) {
+    window.clearTimeout(pollTimer)
+    pollTimer = null
   }
 }
 

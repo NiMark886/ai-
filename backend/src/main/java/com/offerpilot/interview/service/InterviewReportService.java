@@ -24,6 +24,11 @@ import com.offerpilot.interview.web.dto.ScorePoint;
 import com.offerpilot.interview.web.dto.StatsOverview;
 import com.offerpilot.job.domain.JobTemplate;
 import com.offerpilot.job.mapper.JobTemplateMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.core.task.TaskExecutor;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -38,6 +43,8 @@ import java.util.stream.Collectors;
 @Service
 public class InterviewReportService {
 
+    private static final Logger log = LoggerFactory.getLogger(InterviewReportService.class);
+
     private final InterviewReportMapper reportMapper;
     private final InterviewSessionMapper sessionMapper;
     private final InterviewQuestionMapper questionMapper;
@@ -48,6 +55,7 @@ public class InterviewReportService {
     private final InterviewReportGenerator reportGenerator;
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transactionTemplate;
+    private final TaskExecutor reportExecutor;
 
     public InterviewReportService(InterviewReportMapper reportMapper,
                                   InterviewSessionMapper sessionMapper,
@@ -58,7 +66,8 @@ public class InterviewReportService {
                                   AnswerEvaluator answerEvaluator,
                                   InterviewReportGenerator reportGenerator,
                                   ObjectMapper objectMapper,
-                                  TransactionTemplate transactionTemplate) {
+                                  TransactionTemplate transactionTemplate,
+                                  @Qualifier("reportExecutor") TaskExecutor reportExecutor) {
         this.reportMapper = reportMapper;
         this.sessionMapper = sessionMapper;
         this.questionMapper = questionMapper;
@@ -69,6 +78,7 @@ public class InterviewReportService {
         this.reportGenerator = reportGenerator;
         this.objectMapper = objectMapper;
         this.transactionTemplate = transactionTemplate;
+        this.reportExecutor = reportExecutor;
     }
 
     public InterviewReportView generate(Long userId, Long sessionId) {
@@ -77,75 +87,116 @@ public class InterviewReportService {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "面试尚未结束");
         }
 
-        List<InterviewQuestion> questions = questionMapper.selectList(
-                new LambdaQueryWrapper<InterviewQuestion>()
-                        .eq(InterviewQuestion::getSessionId, sessionId)
-                        .orderByAsc(InterviewQuestion::getSeq));
-        List<InterviewMessage> messages = messageMapper.selectList(
-                new LambdaQueryWrapper<InterviewMessage>()
-                        .eq(InterviewMessage::getSessionId, sessionId)
-                        .orderByAsc(InterviewMessage::getId));
-        List<AnswerEvaluation> evaluations = new ArrayList<>(evaluationMapper.selectList(
-                new LambdaQueryWrapper<AnswerEvaluation>()
-                        .eq(AnswerEvaluation::getSessionId, sessionId)
-                        .orderByAsc(AnswerEvaluation::getId)));
+        List<InterviewQuestion> questions = loadQuestions(sessionId);
+        List<InterviewMessage> messages = loadMessages(sessionId);
+        List<AnswerEvaluation> evaluations = loadEvaluations(sessionId);
 
-        ensureEvaluations(session, questions, messages, evaluations);
-
-        InterviewReport existing = reportMapper.selectOne(
-                new LambdaQueryWrapper<InterviewReport>()
-                        .eq(InterviewReport::getSessionId, sessionId));
+        InterviewReport existing = findReport(sessionId);
         if (existing != null && "SUCCESS".equals(existing.getStatus())) {
             return buildView(existing, session, questions, messages, evaluations);
         }
 
-        InterviewReportResult result = reportGenerator.generate(session, questions, messages, evaluations);
-        InterviewReport report = existing == null ? new InterviewReport() : existing;
+        boolean submit = false;
         if (existing == null) {
-            report.setSessionId(sessionId);
-            report.setUserId(userId);
-        }
-        report.setOverallScore(result.overallScore());
-        report.setDimensionsJson(writeJson(result.dimensions()));
-        report.setSummary(result.summary());
-        report.setStrengthsJson(writeJson(result.strengths()));
-        report.setWeaknessesJson(writeJson(result.weaknesses()));
-        report.setSuggestionsJson(writeJson(result.suggestions()));
-        report.setStatus("SUCCESS");
-        transactionTemplate.executeWithoutResult(status -> {
-            if (existing == null) {
-                reportMapper.insert(report);
-            } else {
-                reportMapper.updateById(report);
+            InterviewReport created = new InterviewReport();
+            created.setSessionId(sessionId);
+            created.setUserId(userId);
+            created.setOverallScore(0);
+            created.setDimensionsJson("{}");
+            created.setSummary("");
+            created.setStatus("GENERATING");
+            try {
+                reportMapper.insert(created);
+                existing = created;
+                submit = true;
+            } catch (DuplicateKeyException ex) {
+                existing = findReport(sessionId);
             }
-            session.setTotalScore(result.overallScore());
-            sessionMapper.updateById(session);
-        });
+        } else if ("FAILED".equals(existing.getStatus())) {
+            existing.setStatus("GENERATING");
+            existing.setSummary("");
+            reportMapper.updateById(existing);
+            submit = true;
+        }
 
-        return buildView(report, session, questions, messages, evaluations);
+        if (existing == null) {
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "报告任务创建失败");
+        }
+        if (submit) {
+            Long reportId = existing.getId();
+            reportExecutor.execute(() -> generateAsync(userId, sessionId, reportId));
+        }
+        return buildView(existing, session, questions, messages, evaluations);
     }
 
     public InterviewReportView get(Long userId, Long sessionId) {
         InterviewSession session = loadOwned(userId, sessionId);
-        InterviewReport report = reportMapper.selectOne(
-                new LambdaQueryWrapper<InterviewReport>()
-                        .eq(InterviewReport::getSessionId, sessionId));
+        InterviewReport report = findReport(sessionId);
         if (report == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "报告尚未生成");
         }
-        List<InterviewQuestion> questions = questionMapper.selectList(
-                new LambdaQueryWrapper<InterviewQuestion>()
-                        .eq(InterviewQuestion::getSessionId, sessionId)
-                        .orderByAsc(InterviewQuestion::getSeq));
-        List<InterviewMessage> messages = messageMapper.selectList(
-                new LambdaQueryWrapper<InterviewMessage>()
-                        .eq(InterviewMessage::getSessionId, sessionId)
-                        .orderByAsc(InterviewMessage::getId));
-        List<AnswerEvaluation> evaluations = evaluationMapper.selectList(
-                new LambdaQueryWrapper<AnswerEvaluation>()
-                        .eq(AnswerEvaluation::getSessionId, sessionId)
-                        .orderByAsc(AnswerEvaluation::getId));
-        return buildView(report, session, questions, messages, evaluations);
+        return buildView(report, session,
+                loadQuestions(sessionId), loadMessages(sessionId), loadEvaluations(sessionId));
+    }
+
+    private void generateAsync(Long userId, Long sessionId, Long reportId) {
+        try {
+            InterviewSession session = loadOwned(userId, sessionId);
+            List<InterviewQuestion> questions = loadQuestions(sessionId);
+            List<InterviewMessage> messages = loadMessages(sessionId);
+            List<AnswerEvaluation> evaluations = new ArrayList<>(loadEvaluations(sessionId));
+            ensureEvaluations(session, questions, messages, evaluations);
+
+            InterviewReportResult result = reportGenerator.generate(session, questions, messages, evaluations);
+            InterviewReport report = reportMapper.selectById(reportId);
+            if (report == null) {
+                log.warn("Report row disappeared while generating: reportId={}", reportId);
+                return;
+            }
+            report.setOverallScore(result.overallScore());
+            report.setDimensionsJson(writeJson(result.dimensions()));
+            report.setSummary(result.summary());
+            report.setStrengthsJson(writeJson(result.strengths()));
+            report.setWeaknessesJson(writeJson(result.weaknesses()));
+            report.setSuggestionsJson(writeJson(result.suggestions()));
+            report.setStatus("SUCCESS");
+            transactionTemplate.executeWithoutResult(status -> {
+                reportMapper.updateById(report);
+                session.setTotalScore(result.overallScore());
+                sessionMapper.updateById(session);
+            });
+        } catch (Exception ex) {
+            log.warn("Async report generation failed: sessionId={}", sessionId, ex);
+            InterviewReport report = reportMapper.selectById(reportId);
+            if (report != null) {
+                report.setStatus("FAILED");
+                report.setSummary("报告生成失败，请重试");
+                reportMapper.updateById(report);
+            }
+        }
+    }
+
+    private InterviewReport findReport(Long sessionId) {
+        return reportMapper.selectOne(new LambdaQueryWrapper<InterviewReport>()
+                .eq(InterviewReport::getSessionId, sessionId));
+    }
+
+    private List<InterviewQuestion> loadQuestions(Long sessionId) {
+        return questionMapper.selectList(new LambdaQueryWrapper<InterviewQuestion>()
+                .eq(InterviewQuestion::getSessionId, sessionId)
+                .orderByAsc(InterviewQuestion::getSeq));
+    }
+
+    private List<InterviewMessage> loadMessages(Long sessionId) {
+        return messageMapper.selectList(new LambdaQueryWrapper<InterviewMessage>()
+                .eq(InterviewMessage::getSessionId, sessionId)
+                .orderByAsc(InterviewMessage::getId));
+    }
+
+    private List<AnswerEvaluation> loadEvaluations(Long sessionId) {
+        return evaluationMapper.selectList(new LambdaQueryWrapper<AnswerEvaluation>()
+                .eq(AnswerEvaluation::getSessionId, sessionId)
+                .orderByAsc(AnswerEvaluation::getId));
     }
 
     public List<InterviewHistoryItem> history(Long userId) {

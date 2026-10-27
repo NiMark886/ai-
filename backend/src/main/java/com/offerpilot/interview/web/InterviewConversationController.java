@@ -15,8 +15,8 @@ import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.http.MediaType;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -39,11 +39,11 @@ public class InterviewConversationController {
     private static final Logger log = LoggerFactory.getLogger(InterviewConversationController.class);
 
     private final InterviewConversationService conversationService;
-    private final ThreadPoolTaskExecutor sseExecutor;
+    private final TaskExecutor sseExecutor;
     private final ObjectMapper objectMapper;
 
     public InterviewConversationController(InterviewConversationService conversationService,
-                                           @Qualifier("interviewSseExecutor") ThreadPoolTaskExecutor sseExecutor,
+                                           @Qualifier("interviewSseExecutor") TaskExecutor sseExecutor,
                                            ObjectMapper objectMapper) {
         this.conversationService = conversationService;
         this.sseExecutor = sseExecutor;

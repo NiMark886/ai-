@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import static com.offerpilot.support.SseTestSupport.awaitStreamCompletion;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -71,19 +72,21 @@ class InterviewReportControllerIT {
 
         mockMvc.perform(post("/api/interviews/" + sessionId + "/report")
                         .header(AUTHORIZATION, "Bearer " + token))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.overallScore").isNumber())
-                .andExpect(jsonPath("$.data.dimensions.accuracy").isNumber())
-                .andExpect(jsonPath("$.data.dimensions.depth").isNumber())
-                .andExpect(jsonPath("$.data.dimensions.project").isNumber())
-                .andExpect(jsonPath("$.data.dimensions.expression").isNumber())
-                .andExpect(jsonPath("$.data.dimensions.match").isNumber())
-                .andExpect(jsonPath("$.data.questionReviews").isArray());
+                .andExpect(status().isOk());
+
+        JsonNode report = awaitReport(token, sessionId);
+        assertThat(report.get("overallScore").isNumber()).isTrue();
+        assertThat(report.get("dimensions").get("accuracy").isNumber()).isTrue();
+        assertThat(report.get("dimensions").get("depth").isNumber()).isTrue();
+        assertThat(report.get("dimensions").get("project").isNumber()).isTrue();
+        assertThat(report.get("dimensions").get("expression").isNumber()).isTrue();
+        assertThat(report.get("dimensions").get("match").isNumber()).isTrue();
+        assertThat(report.get("questionReviews").isArray()).isTrue();
 
         mockMvc.perform(get("/api/interviews/" + sessionId + "/report")
                         .header(AUTHORIZATION, "Bearer " + token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.overallScore").isNumber());
+                .andExpect(jsonPath("$.data.status").value("SUCCESS"));
 
         mockMvc.perform(get("/api/interviews/history")
                         .header(AUTHORIZATION, "Bearer " + token))
@@ -136,6 +139,22 @@ class InterviewReportControllerIT {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.length()").value(org.hamcrest.Matchers.greaterThan(0)))
                 .andExpect(jsonPath("$.data[0].recommendedQuestions").isArray());
+    }
+
+    private JsonNode awaitReport(String token, long sessionId) throws Exception {
+        long deadline = System.currentTimeMillis() + 10_000;
+        while (System.currentTimeMillis() < deadline) {
+            MvcResult result = mockMvc.perform(get("/api/interviews/" + sessionId + "/report")
+                            .header(AUTHORIZATION, "Bearer " + token))
+                    .andExpect(status().isOk())
+                    .andReturn();
+            JsonNode data = objectMapper.readTree(result.getResponse().getContentAsString()).get("data");
+            if ("SUCCESS".equals(data.path("status").asText())) {
+                return data;
+            }
+            Thread.sleep(100);
+        }
+        throw new AssertionError("report was not generated within 10 seconds");
     }
 
     private String registerAndToken() throws Exception {

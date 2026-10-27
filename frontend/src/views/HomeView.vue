@@ -72,6 +72,14 @@ function sampleTopics(job: JobTemplate): string[] {
       <div class="brand">OfferPilot</div>
       <div class="user-area">
         <span class="user-name">{{ auth.user?.nickname || '同学' }}</span>
+        <el-button
+          v-if="auth.user?.role === 'ADMIN'"
+          link
+          type="primary"
+          @click="router.push('/admin/questions')"
+        >
+          题库管理
+        </el-button>
         <el-button link type="primary" @click="router.push('/history')">成长记录</el-button>
         <el-button link type="primary" @click="handleLogout">退出登录</el-button>
       </div>

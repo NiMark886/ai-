@@ -4,7 +4,7 @@ import { ElMessage } from 'element-plus'
 import type { UploadRequestOptions } from 'element-plus'
 import type { JobTemplate } from '@/api/job'
 import { resumeApi, type ResumeView } from '@/api/resume'
-import { interviewApi, type InterviewSession } from '@/api/interview'
+import { interviewApi, quotaApi, type InterviewSession, type QuotaView } from '@/api/interview'
 
 const props = defineProps<{
   modelValue: boolean
@@ -20,6 +20,7 @@ const resumes = ref<ResumeView[]>([])
 const loading = ref(false)
 const uploading = ref(false)
 const submitting = ref(false)
+const quota = ref<QuotaView | null>(null)
 
 const form = reactive({
   resumeId: undefined as number | undefined,
@@ -49,7 +50,12 @@ watch(
 async function loadResumes() {
   loading.value = true
   try {
-    resumes.value = await resumeApi.list()
+    const [resumeList, quotaData] = await Promise.all([
+      resumeApi.list(),
+      quotaApi.me()
+    ])
+    resumes.value = resumeList
+    quota.value = quotaData
     if (!form.resumeId && resumes.value.length > 0) {
       form.resumeId = resumes.value[0].id
     }
@@ -79,6 +85,10 @@ async function handleUpload(options: UploadRequestOptions) {
 
 async function submit() {
   if (!props.job) return
+  if (quota.value && quota.value.remainingSessions === 0) {
+    ElMessage.warning('今日面试额度已用完，请明天再试')
+    return
+  }
   if (!form.resumeId) {
     ElMessage.warning('请先上传或选择一份简历')
     return
@@ -178,6 +188,12 @@ async function submit() {
         </el-radio-group>
         <p v-if="form.mode === 'PRACTICE'" class="mode-hint">
           每题回答后会立即显示正确性点评，适合刷题练习。
+        </p>
+        <p v-if="quota" class="quota-line">
+          今日剩余
+          {{ quota.remainingSessions < 0 ? '不限' : quota.remainingSessions }}
+          场
+          <span v-if="quota.plan !== 'ADMIN'">（每日 {{ quota.sessionLimit }} 场）</span>
         </p>
       </section>
 
@@ -287,6 +303,12 @@ async function submit() {
 .mode-hint {
   margin: 8px 0 0;
   color: #8a97a8;
+  font-size: 12px;
+}
+
+.quota-line {
+  margin: 8px 0 0;
+  color: #2e75b6;
   font-size: 12px;
 }
 </style>

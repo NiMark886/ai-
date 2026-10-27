@@ -147,6 +147,48 @@ export interface HintResult {
   hint: string
 }
 
+export interface QuotaView {
+  plan: string
+  sessionLimit: number
+  sessionUsed: number
+  remainingSessions: number
+  tokenLimit: number
+  tokenUsed: number
+  resetAt: string | null
+}
+
+export interface AdminQuestion {
+  id: number
+  category: string
+  level: string
+  tags: string[]
+  difficulty: number
+  question: string
+  referenceAnswer: string
+  source: string
+  status: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AdminQuestionRequest {
+  category: string
+  level: string
+  tags: string
+  difficulty: number
+  question: string
+  referenceAnswer: string
+  source: string
+  status: string
+}
+
+export interface PageResult<T> {
+  records: T[]
+  total: number
+  page: number
+  size: number
+}
+
 export interface StreamHandlers {
   onMeta?: (meta: {
     candidateMessageId: number
@@ -189,6 +231,25 @@ export const interviewApi = {
   skip: (id: number) => http.post<never, InterviewSession>(`/interviews/${id}/skip`),
 
   finish: (id: number) => http.post<never, InterviewSession>(`/interviews/${id}/finish`)
+}
+
+export const quotaApi = {
+  me: () => http.get<never, QuotaView>('/quota/me')
+}
+
+export const adminQuestionApi = {
+  page: (params: { page: number; size: number; keyword?: string }) =>
+    http.get<never, PageResult<AdminQuestion>>('/admin/questions', { params }),
+
+  get: (id: number) => http.get<never, AdminQuestion>(`/admin/questions/${id}`),
+
+  create: (data: AdminQuestionRequest) =>
+    http.post<never, AdminQuestion>('/admin/questions', data),
+
+  update: (id: number, data: AdminQuestionRequest) =>
+    http.put<never, AdminQuestion>(`/admin/questions/${id}`, data),
+
+  remove: (id: number) => http.delete<never, void>(`/admin/questions/${id}`)
 }
 
 const ACCESS_KEY = 'offerpilot_access_token'

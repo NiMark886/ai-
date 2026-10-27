@@ -7,6 +7,7 @@ public enum ErrorCode {
     NOT_FOUND(40401, "资源不存在"),
     CONFLICT(40901, "资源冲突"),
     FILE_TOO_LARGE(41301, "文件过大"),
+    QUOTA_EXCEEDED(42902, "额度不足"),
     INTERNAL_ERROR(50000, "服务器内部错误");
 
     private final int code;

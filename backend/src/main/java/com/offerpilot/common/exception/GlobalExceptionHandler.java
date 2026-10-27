@@ -23,6 +23,7 @@ public class GlobalExceptionHandler {
             case NOT_FOUND -> HttpStatus.NOT_FOUND;
             case CONFLICT -> HttpStatus.CONFLICT;
             case FILE_TOO_LARGE -> HttpStatus.PAYLOAD_TOO_LARGE;
+            case QUOTA_EXCEEDED -> HttpStatus.TOO_MANY_REQUESTS;
             case VALIDATION_ERROR -> HttpStatus.BAD_REQUEST;
             default -> HttpStatus.INTERNAL_SERVER_ERROR;
         };

@@ -57,6 +57,9 @@ app:
     refresh-token-ttl: P7D
   ai:
     enabled: ${APP_AI_ENABLED:false}
+  quota:
+    free-daily-sessions: 3
+    free-daily-tokens: 200000
   storage:
     local-root: ${OFFERPILOT_UPLOAD_DIR:./data/uploads}
     max-size: 10485760

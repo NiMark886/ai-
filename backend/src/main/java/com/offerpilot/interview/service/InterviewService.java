@@ -19,6 +19,7 @@ import com.offerpilot.interview.web.dto.QuestionView;
 import com.offerpilot.job.domain.JobTemplate;
 import com.offerpilot.job.mapper.JobTemplateMapper;
 import com.offerpilot.questionbank.service.QuestionBankRetriever;
+import com.offerpilot.quota.service.QuotaService;
 import com.offerpilot.resume.domain.Resume;
 import com.offerpilot.resume.domain.ResumeProfile;
 import com.offerpilot.resume.mapper.ResumeMapper;
@@ -37,6 +38,7 @@ public class InterviewService {
     private final ResumeMapper resumeMapper;
     private final InterviewBlueprintGenerator blueprintGenerator;
     private final QuestionBankRetriever questionBankRetriever;
+    private final QuotaService quotaService;
     private final ObjectMapper objectMapper;
 
     public InterviewService(InterviewSessionMapper sessionMapper,
@@ -45,6 +47,7 @@ public class InterviewService {
                             ResumeMapper resumeMapper,
                             InterviewBlueprintGenerator blueprintGenerator,
                             QuestionBankRetriever questionBankRetriever,
+                            QuotaService quotaService,
                             ObjectMapper objectMapper) {
         this.sessionMapper = sessionMapper;
         this.questionMapper = questionMapper;
@@ -52,6 +55,7 @@ public class InterviewService {
         this.resumeMapper = resumeMapper;
         this.blueprintGenerator = blueprintGenerator;
         this.questionBankRetriever = questionBankRetriever;
+        this.quotaService = quotaService;
         this.objectMapper = objectMapper;
     }
 
@@ -76,6 +80,8 @@ public class InterviewService {
         var retrieved = questionBankRetriever.retrieve(job.getJdText(), tags, 8);
         InterviewBlueprint blueprint = blueprintGenerator.generate(new BlueprintRequest(
                 job, profile, request.difficulty(), request.durationMinutes(), request.persona(), retrieved));
+
+        quotaService.checkAndConsumeSession(userId);
 
         InterviewSession session = new InterviewSession();
         session.setUserId(userId);

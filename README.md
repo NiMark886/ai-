@@ -2,9 +2,9 @@
 
 面向 Java 后端 / Java+AI 求职者的垂直 AI 模拟面试教练。
 
-当前进度：P0 Week 5A 已完成（71 道题库、关键词检索、蓝图接入、薄弱点推荐）。
+当前进度：P0 Week 5 已完成（题库 RAG-lite、薄弱点推荐、管理员题库 CRUD、每日额度）。
 
-下一步：P0 Week 5B（运营后台题库 CRUD、额度限流）。
+下一步：P0 Week 6（部署与验收）。
 
 ## 目录
 
@@ -89,6 +89,11 @@ mvn test
 | GET | `/api/interviews/history` | 面试历史 |
 | GET | `/api/stats/overview` | 成长统计 |
 | GET | `/api/stats/weaknesses` | 薄弱点与推荐题目 |
+| GET | `/api/quota/me` | 当前用户额度 |
+| GET | `/api/admin/questions` | 管理员题库分页 |
+| POST | `/api/admin/questions` | 管理员新增题目 |
+| PUT | `/api/admin/questions/{id}` | 管理员编辑题目 |
+| DELETE | `/api/admin/questions/{id}` | 管理员删除题目 |
 
 ## AI 配置（可选）
 
@@ -117,6 +122,20 @@ AI 调用失败会自动回退 Mock 生成器，不会阻塞面试创建。上�
 - 创建面试时按岗位 JD、简历技能和题库标签做关键词检索，题库题目会进入 BASIC 题池。
 - 成长页根据历史回答的缺失要点和题目标签聚合薄弱点，推荐题库题目；推荐题目可展开查看参考答案。
 - 当前为关键词检索（RAG-lite），pgvector/bge-m3 向量检索留到部署阶段。
+
+## 管理员账号
+
+- 邮箱：`admin@offerpilot.local`
+- 密码：`admin123`
+- 仅本地开发使用，部署前请修改密码或移除种子账号。
+
+管理员登录后首页会出现“题库管理”入口，可对题库进行分页查询、新增、编辑和软删除；普通用户访问管理员接口返回 403。
+
+## 每日额度
+
+- 普通用户每天最多创建 3 场面试（模拟面试与练习模式共用额度），第 4 场返回 HTTP 429（`code=42902`）。
+- 管理员不限额度，`/api/quota/me` 返回 `plan=ADMIN`、`remainingSessions=-1`。
+- 创建面试弹窗会显示“今日剩余 X 场”，额度按自然日重置。
 
 ## 报告与成长
 

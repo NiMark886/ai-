@@ -1,6 +1,6 @@
 # OfferPilot W5B：运营后台题库 CRUD 与每日额度实施计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 增加管理员题库 CRUD 后台和每日面试额度：普通用户每天 3 场，管理员不限；前端提供题库管理页和创建面试弹窗中的剩余额度提示。
 
@@ -39,14 +39,14 @@
 - Test: `backend/src/test/java/com/offerpilot/quota/SchemaV9IT.java`
 - Test: `backend/src/test/java/com/offerpilot/quota/QuotaServiceTest.java`
 
-- [ ] **Step 1: 创建分支**
+- [x] **Step 1: 创建分支**
 
 ```bash
 cd /e/work
 git checkout -b feat/p0-week5b-admin-quota
 ```
 
-- [ ] **Step 2: 先写 V9 测试**
+- [x] **Step 2: 先写 V9 测试**
 
 Create `backend/src/test/java/com/offerpilot/quota/SchemaV9IT.java`:
 ```java
@@ -81,7 +81,7 @@ class SchemaV9IT {
 }
 ```
 
-- [ ] **Step 3: 运行测试，确认失败**
+- [x] **Step 3: 运行测试，确认失败**
 
 ```bash
 cd /e/work
@@ -90,7 +90,7 @@ mvn -f backend/pom.xml -Dtest=SchemaV9IT test
 
 Expected: FAIL。
 
-- [ ] **Step 4: 创建 V9 迁移**
+- [x] **Step 4: 创建 V9 迁移**
 
 Create `backend/src/main/resources/db/migration/V9__admin_and_quota.sql`:
 ```sql
@@ -117,7 +117,7 @@ SELECT 'admin@offerpilot.local',
 WHERE NOT EXISTS (SELECT 1 FROM sys_user WHERE email = 'admin@offerpilot.local');
 ```
 
-- [ ] **Step 5: 增加额度错误码**
+- [x] **Step 5: 增加额度错误码**
 
 在 `ErrorCode` 中加入：
 ```java
@@ -128,7 +128,7 @@ WHERE NOT EXISTS (SELECT 1 FROM sys_user WHERE email = 'admin@offerpilot.local')
             case QUOTA_EXCEEDED -> HttpStatus.TOO_MANY_REQUESTS;
 ```
 
-- [ ] **Step 6: 创建额度实体与 DTO**
+- [x] **Step 6: 创建额度实体与 DTO**
 
 Create `backend/src/main/java/com/offerpilot/quota/domain/UserQuota.java`:
 ```java
@@ -207,7 +207,7 @@ public record QuotaView(
 }
 ```
 
-- [ ] **Step 7: 创建 `QuotaService`**
+- [x] **Step 7: 创建 `QuotaService`**
 
 Create `backend/src/main/java/com/offerpilot/quota/service/QuotaService.java`:
 ```java
@@ -313,7 +313,7 @@ public class QuotaService {
 }
 ```
 
-- [ ] **Step 8: 创建额度接口**
+- [x] **Step 8: 创建额度接口**
 
 Create `backend/src/main/java/com/offerpilot/quota/web/QuotaController.java`:
 ```java
@@ -344,7 +344,7 @@ public class QuotaController {
 }
 ```
 
-- [ ] **Step 9: 在创建面试时扣减额度**
+- [x] **Step 9: 在创建面试时扣减额度**
 
 在 `InterviewService` 构造函数中增加 `QuotaService quotaService` 字段与参数，并在 `create` 生成蓝图后、插入 session 前调用：
 ```java
@@ -355,7 +355,7 @@ public class QuotaController {
 import com.offerpilot.quota.service.QuotaService;
 ```
 
-- [ ] **Step 10: 配置额度**
+- [x] **Step 10: 配置额度**
 
 在 `application.yml` 的 `app:` 下加入：
 ```yaml
@@ -364,7 +364,7 @@ import com.offerpilot.quota.service.QuotaService;
     free-daily-tokens: 200000
 ```
 
-- [ ] **Step 11: 写额度服务测试**
+- [x] **Step 11: 写额度服务测试**
 
 Create `backend/src/test/java/com/offerpilot/quota/QuotaServiceTest.java`:
 ```java
@@ -420,7 +420,7 @@ class QuotaServiceTest {
 }
 ```
 
-- [ ] **Step 12: 运行测试**
+- [x] **Step 12: 运行测试**
 
 ```bash
 cd /e/work
@@ -429,7 +429,7 @@ mvn -f backend/pom.xml -Dtest=SchemaV9IT,QuotaServiceTest test
 
 Expected: PASS。若 H2 不支持 `INSERT ... SELECT ... WHERE NOT EXISTS`，将管理员种子改为 `MERGE INTO sys_user KEY(email) VALUES (...)`。
 
-- [ ] **Step 13: 提交**
+- [x] **Step 13: 提交**
 
 ```bash
 cd /e/work
@@ -455,7 +455,7 @@ git commit -m "feat(quota): add admin account and daily interview quota"
 - Create: `backend/src/main/java/com/offerpilot/questionbank/web/AdminQuestionController.java`
 - Test: `backend/src/test/java/com/offerpilot/questionbank/AdminQuestionControllerIT.java`
 
-- [ ] **Step 1: 先写管理员接口测试**
+- [x] **Step 1: 先写管理员接口测试**
 
 Create `backend/src/test/java/com/offerpilot/questionbank/AdminQuestionControllerIT.java`:
 ```java
@@ -574,7 +574,7 @@ class AdminQuestionControllerIT {
 }
 ```
 
-- [ ] **Step 2: 运行测试，确认失败**
+- [x] **Step 2: 运行测试，确认失败**
 
 ```bash
 cd /e/work
@@ -583,7 +583,7 @@ mvn -f backend/pom.xml -Dtest=AdminQuestionControllerIT test
 
 Expected: FAIL，管理员接口不存在。
 
-- [ ] **Step 3: 创建 DTO**
+- [x] **Step 3: 创建 DTO**
 
 Create `backend/src/main/java/com/offerpilot/questionbank/web/dto/QuestionBankAdminRequest.java`:
 ```java
@@ -655,7 +655,7 @@ public record PageResult<T>(List<T> records, long total, long page, long size) {
 }
 ```
 
-- [ ] **Step 4: 创建管理员题库服务**
+- [x] **Step 4: 创建管理员题库服务**
 
 Create `backend/src/main/java/com/offerpilot/questionbank/service/QuestionBankAdminService.java`:
 ```java
@@ -761,7 +761,7 @@ public class QuestionBankAdminService {
 }
 ```
 
-- [ ] **Step 5: 创建管理员控制器**
+- [x] **Step 5: 创建管理员控制器**
 
 Create `backend/src/main/java/com/offerpilot/questionbank/web/AdminQuestionController.java`:
 ```java
@@ -827,7 +827,7 @@ public class AdminQuestionController {
 }
 ```
 
-- [ ] **Step 6: 运行测试**
+- [x] **Step 6: 运行测试**
 
 ```bash
 cd /e/work
@@ -836,7 +836,7 @@ mvn -f backend/pom.xml -Dtest=AdminQuestionControllerIT test
 
 Expected: PASS。
 
-- [ ] **Step 7: 全量测试**
+- [x] **Step 7: 全量测试**
 
 ```bash
 cd /e/work
@@ -845,7 +845,7 @@ mvn -f backend/pom.xml test
 
 Expected: 所有测试 PASS。
 
-- [ ] **Step 8: 提交**
+- [x] **Step 8: 提交**
 
 ```bash
 cd /e/work
@@ -870,7 +870,7 @@ git commit -m "feat(admin): add question bank CRUD APIs"
 - Modify: `frontend/src/components/InterviewSetupDialog.vue`
 - Modify: `README.md`
 
-- [ ] **Step 1: 增加前端类型与 API**
+- [x] **Step 1: 增加前端类型与 API**
 
 在 `frontend/src/api/interview.ts` 中增加：
 ```ts
@@ -939,7 +939,7 @@ export const adminQuestionApi = {
 }
 ```
 
-- [ ] **Step 2: 创建管理员题库页**
+- [x] **Step 2: 创建管理员题库页**
 
 Create `frontend/src/views/AdminQuestionsView.vue`:
 ```vue
@@ -1307,7 +1307,7 @@ function goHome() {
 </style>
 ```
 
-- [ ] **Step 3: 添加路由与首页入口**
+- [x] **Step 3: 添加路由与首页入口**
 
 在 `frontend/src/router/index.ts` 加入：
 ```ts
@@ -1331,7 +1331,7 @@ function goHome() {
         </el-button>
 ```
 
-- [ ] **Step 4: 创建面试弹窗显示额度**
+- [x] **Step 4: 创建面试弹窗显示额度**
 
 在 `InterviewSetupDialog.vue`：
 - 导入 `quotaApi, type QuotaView`：
@@ -1385,7 +1385,7 @@ const quota = ref<QuotaView | null>(null)
 }
 ```
 
-- [ ] **Step 5: 构建验证**
+- [x] **Step 5: 构建验证**
 
 ```bash
 cd /e/work/frontend
@@ -1394,14 +1394,14 @@ npm run build
 
 Expected: 构建成功。
 
-- [ ] **Step 6: 浏览器验收**
+- [x] **Step 6: 浏览器验收**
 
 1. 用管理员登录：`admin@offerpilot.local / admin123`。
 2. 首页出现“题库管理”，进入后新增一道题、搜索、编辑、删除。
 3. 用普通用户登录，打开创建面试弹窗，应显示“今日剩余 3 场（每日 3 场）”。
 4. 连续创建 3 场面试后，第 4 场应提示额度已用完/接口返回 429。
 
-- [ ] **Step 7: 更新 README**
+- [x] **Step 7: 更新 README**
 
 在“当前进度”改为：
 ```markdown
@@ -1426,7 +1426,7 @@ Expected: 构建成功。
 - 仅本地开发使用，部署前请修改密码或移除种子账号。
 ```
 
-- [ ] **Step 8: 提交**
+- [x] **Step 8: 提交**
 
 ```bash
 cd /e/work

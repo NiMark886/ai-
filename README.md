@@ -2,9 +2,9 @@
 
 面向 Java 后端 / Java+AI 求职者的垂直 AI 模拟面试教练。
 
-当前进度：P0 Week 5 已完成（题库 RAG-lite、薄弱点推荐、管理员题库 CRUD、每日额度）。
+当前进度：P0 已闭环（Week 6 完成：Docker Compose 一键部署、20 并发压测、演示物料）。
 
-下一步：P0 Week 6（部署与验收）。
+下一步：P1（向量检索、真实 AI 深度评测、支付与增长）。
 
 ## 目录
 
@@ -12,6 +12,61 @@
 - `frontend/`：Vue3 + Vite + TypeScript + Element Plus
 - `docs/`：实施计划
 - `OfferPilot-智能AI面试问答项目总体方案-V1.0.docx`：产品与技术方案
+
+## 本地运行（当前已验证）
+
+前置条件：本机 MySQL 已启动，存在 `offerpilot` 数据库，账号默认 `root/1234`。
+
+后端：
+
+```bash
+cd backend
+SPRING_PROFILES_ACTIVE=mysql MYSQL_HOST=127.0.0.1 MYSQL_PORT=3306 \
+MYSQL_DATABASE=offerpilot MYSQL_USER=root MYSQL_PASSWORD=1234 \
+mvn spring-boot:run
+```
+
+前端：
+
+```bash
+cd frontend
+npm run dev
+```
+
+访问 http://localhost:5173。
+
+## Docker 一键启动（需 Docker Desktop/WSL2）
+
+Windows PowerShell：
+```powershell
+.\scripts\docker-up.ps1
+```
+
+Git Bash / macOS / Linux：
+```bash
+bash scripts/docker-up.sh
+```
+
+访问 http://localhost:8088。首次启动会自动生成 `.env`（含随机 JWT_SECRET）并构建镜像。
+
+前置条件：本机 MySQL 已启动，存在 `offerpilot` 数据库，`.env` 中默认使用 `root/1234`。如本机账号密码不同，请修改 `.env` 的 `MYSQL_USER`、`MYSQL_PASSWORD`、`MYSQL_DATABASE`。容器内通过 `host.docker.internal:3306` 访问宿主 MySQL。
+
+> 本次 W6 验收因本机 Docker Desktop/WSL2 未就绪，使用“本地运行”路径完成；Docker 容器启动验证待环境恢复后补做。
+
+常用命令：
+
+```bash
+docker compose logs -f backend   # 后端日志
+docker compose ps                # 服务状态
+bash scripts/docker-down.sh      # 停止
+bash scripts/docker-down.sh -v   # 停止并清空上传文件
+```
+
+可选基础设施（当前业务未使用）：
+
+```bash
+docker compose --profile infra up -d
+```
 
 ## 快速开始
 
@@ -59,6 +114,22 @@ npm run dev
 cd backend
 mvn test
 ```
+
+## 压测
+
+```bash
+python scripts/load_test.py --users 20 --base-url http://localhost:8080
+```
+
+若使用 Docker 栈，将 `--base-url` 改为 `http://localhost:8088`。
+
+报告输出到 `docs/reports/load-test-20u.json` 与 `docs/reports/load-test-20u.md`。默认 Mock AI，不产生 DeepSeek 费用。
+
+## 演示物料
+
+- `docs/demo/3-minute-demo.md`：3 分钟演示脚本
+- `docs/demo/product-intro.html`：产品介绍页（浏览器直接打开）
+- `docs/demo/resume-project.md`：简历项目描述（含实测数据）
 
 ## 当前 API
 

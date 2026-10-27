@@ -25,7 +25,7 @@ import com.offerpilot.interview.web.dto.StatsOverview;
 import com.offerpilot.job.domain.JobTemplate;
 import com.offerpilot.job.mapper.JobTemplateMapper;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -47,6 +47,7 @@ public class InterviewReportService {
     private final AnswerEvaluator answerEvaluator;
     private final InterviewReportGenerator reportGenerator;
     private final ObjectMapper objectMapper;
+    private final TransactionTemplate transactionTemplate;
 
     public InterviewReportService(InterviewReportMapper reportMapper,
                                   InterviewSessionMapper sessionMapper,
@@ -56,7 +57,8 @@ public class InterviewReportService {
                                   JobTemplateMapper jobTemplateMapper,
                                   AnswerEvaluator answerEvaluator,
                                   InterviewReportGenerator reportGenerator,
-                                  ObjectMapper objectMapper) {
+                                  ObjectMapper objectMapper,
+                                  TransactionTemplate transactionTemplate) {
         this.reportMapper = reportMapper;
         this.sessionMapper = sessionMapper;
         this.questionMapper = questionMapper;
@@ -66,9 +68,9 @@ public class InterviewReportService {
         this.answerEvaluator = answerEvaluator;
         this.reportGenerator = reportGenerator;
         this.objectMapper = objectMapper;
+        this.transactionTemplate = transactionTemplate;
     }
 
-    @Transactional
     public InterviewReportView generate(Long userId, Long sessionId) {
         InterviewSession session = loadOwned(userId, sessionId);
         if (!"COMPLETED".equals(session.getStatus())) {
@@ -110,14 +112,15 @@ public class InterviewReportService {
         report.setWeaknessesJson(writeJson(result.weaknesses()));
         report.setSuggestionsJson(writeJson(result.suggestions()));
         report.setStatus("SUCCESS");
-        if (existing == null) {
-            reportMapper.insert(report);
-        } else {
-            reportMapper.updateById(report);
-        }
-
-        session.setTotalScore(result.overallScore());
-        sessionMapper.updateById(session);
+        transactionTemplate.executeWithoutResult(status -> {
+            if (existing == null) {
+                reportMapper.insert(report);
+            } else {
+                reportMapper.updateById(report);
+            }
+            session.setTotalScore(result.overallScore());
+            sessionMapper.updateById(session);
+        });
 
         return buildView(report, session, questions, messages, evaluations);
     }

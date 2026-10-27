@@ -114,7 +114,13 @@ public class InterviewConversationService {
         }
 
         InterviewMessage candidate = addMessage(sessionId, question.getId(), "CANDIDATE", "ANSWER", request.content());
-        AnswerEvaluationView evaluation = evaluateIfPractice(session, question, candidate, request.content());
+        InterviewMessage prompt = lastInterviewerMessage(sessionId, question.getId());
+        String promptType = prompt != null && "FOLLOW_UP".equals(prompt.getMessageType())
+                ? "FOLLOW_UP" : "QUESTION";
+        String promptText = "FOLLOW_UP".equals(promptType) && prompt != null
+                ? prompt.getContent() : question.getContent();
+        AnswerEvaluationView evaluation = evaluateIfPractice(
+                session, question, candidate, promptText, promptType, request.content());
         List<InterviewMessage> historyMessages = history(sessionId);
 
         if (shouldFollowUp(question, request.content())) {
@@ -236,6 +242,15 @@ public class InterviewConversationService {
                 .orderByAsc(InterviewMessage::getId));
     }
 
+    private InterviewMessage lastInterviewerMessage(Long sessionId, Long questionId) {
+        return messageMapper.selectOne(new LambdaQueryWrapper<InterviewMessage>()
+                .eq(InterviewMessage::getSessionId, sessionId)
+                .eq(InterviewMessage::getQuestionId, questionId)
+                .eq(InterviewMessage::getRole, "INTERVIEWER")
+                .orderByDesc(InterviewMessage::getId)
+                .last("LIMIT 1"));
+    }
+
     private InterviewQuestion nextPending(Long sessionId) {
         return questionMapper.selectOne(new LambdaQueryWrapper<InterviewQuestion>()
                 .eq(InterviewQuestion::getSessionId, sessionId)
@@ -289,14 +304,18 @@ public class InterviewConversationService {
     private AnswerEvaluationView evaluateIfPractice(InterviewSession session,
                                                     InterviewQuestion question,
                                                     InterviewMessage candidate,
+                                                    String promptText,
+                                                    String promptType,
                                                     String answer) {
         if (!"PRACTICE".equals(session.getMode())) {
             return null;
         }
-        AnswerEvaluationResult result = answerEvaluator.evaluate(question, answer);
+        AnswerEvaluationResult result = answerEvaluator.evaluate(question, promptText, promptType, answer);
         AnswerEvaluation evaluation = new AnswerEvaluation();
         evaluation.setSessionId(session.getId());
         evaluation.setQuestionId(question.getId());
+        evaluation.setPromptText(promptText);
+        evaluation.setPromptType(promptType);
         evaluation.setCandidateMessageId(candidate.getId());
         evaluation.setCorrectness(result.correctness());
         evaluation.setScore(result.score());

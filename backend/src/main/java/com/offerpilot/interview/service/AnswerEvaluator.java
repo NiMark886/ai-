@@ -5,5 +5,6 @@ import com.offerpilot.interview.web.dto.AnswerEvaluationResult;
 
 public interface AnswerEvaluator {
 
-    AnswerEvaluationResult evaluate(InterviewQuestion question, String answer);
+    AnswerEvaluationResult evaluate(InterviewQuestion question, String promptText,
+                                    String promptType, String answer);
 }

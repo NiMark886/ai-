@@ -238,9 +238,18 @@ function backToPreview() {
                 <div class="evaluation-head">
                   <span class="evaluation-label">
                     {{ correctnessLabel(evaluations[message.id].correctness) }}
+                    <em class="evaluation-scope">
+                      {{ evaluations[message.id].promptType === 'FOLLOW_UP' ? '针对追问' : '针对本题' }}
+                    </em>
                   </span>
                   <span class="evaluation-score">{{ evaluations[message.id].score }}/5</span>
                 </div>
+                <p
+                  v-if="evaluations[message.id].promptType === 'FOLLOW_UP'"
+                  class="evaluation-prompt"
+                >
+                  {{ evaluations[message.id].promptText }}
+                </p>
                 <p class="evaluation-comment">{{ evaluations[message.id].comment }}</p>
                 <p
                   v-if="evaluations[message.id].missingPoints?.length"
@@ -470,8 +479,27 @@ function backToPreview() {
   font-weight: 700;
 }
 
+.evaluation-scope {
+  margin-left: 6px;
+  color: #8a97a8;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 400;
+}
+
 .evaluation-score {
   color: #8a97a8;
+}
+
+.evaluation-prompt {
+  margin: 0 0 6px;
+  color: #8a97a8;
+  font-size: 12px;
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .evaluation-card.correct {

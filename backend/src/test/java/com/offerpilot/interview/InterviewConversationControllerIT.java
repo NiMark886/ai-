@@ -108,24 +108,38 @@ class InterviewConversationControllerIT {
         long questionId = objectMapper.readTree(sessionResult.getResponse().getContentAsString())
                 .get("data").get("currentQuestionId").asLong();
 
-        MvcResult sse = mockMvc.perform(post("/api/interviews/" + sessionId + "/answers")
+        MvcResult firstSse = mockMvc.perform(post("/api/interviews/" + sessionId + "/answers")
                         .header(AUTHORIZATION, "Bearer " + token)
                         .contentType("application/json")
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "questionId", questionId,
-                                "content", "HashMap 底层是数组、链表和红黑树，扩容时容量翻倍"))))
+                                "content", "不知道"))))
                 .andExpect(request().asyncStarted())
                 .andReturn();
 
-        mockMvc.perform(asyncDispatch(sse))
+        mockMvc.perform(asyncDispatch(firstSse))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("\"correctness\"")))
-                .andExpect(content().string(containsString("\"comment\"")));
+                .andExpect(content().string(containsString("\"correctness\"")));
+
+        MvcResult secondSse = mockMvc.perform(post("/api/interviews/" + sessionId + "/answers")
+                        .header(AUTHORIZATION, "Bearer " + token)
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "questionId", questionId,
+                                "content", "会重新分布到新的位置"))))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+
+        mockMvc.perform(asyncDispatch(secondSse))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("\"promptType\":\"FOLLOW_UP\"")));
 
         mockMvc.perform(get("/api/interviews/" + sessionId + "/evaluations")
                         .header(AUTHORIZATION, "Bearer " + token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.length()").value(1));
+                .andExpect(jsonPath("$.data.length()").value(2))
+                .andExpect(jsonPath("$.data[1].promptType").value("FOLLOW_UP"))
+                .andExpect(jsonPath("$.data[1].promptText").value(org.hamcrest.Matchers.containsString("扩容后元素如何重新分布")));
     }
 
     private String registerAndToken() throws Exception {

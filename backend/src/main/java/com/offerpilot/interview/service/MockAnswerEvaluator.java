@@ -16,7 +16,12 @@ public class MockAnswerEvaluator implements AnswerEvaluator {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
-    public AnswerEvaluationResult evaluate(InterviewQuestion question, String answer) {
+    public AnswerEvaluationResult evaluate(InterviewQuestion question, String promptText,
+                                           String promptType, String answer) {
+        if ("FOLLOW_UP".equals(promptType)) {
+            return evaluateFollowUp(answer);
+        }
+
         List<String> points = readList(question.getReferencePoints());
         String text = answer == null ? "" : answer.trim();
         String lower = text.toLowerCase(Locale.ROOT);
@@ -65,6 +70,36 @@ public class MockAnswerEvaluator implements AnswerEvaluator {
         String comment = "覆盖了 " + matched + "/" + points.size() + " 个参考要点。";
         double confidence = Math.min(0.9, 0.6 + 0.3 * ratio);
         return new AnswerEvaluationResult(correctness, score, comment, missing, confidence);
+    }
+
+    private AnswerEvaluationResult evaluateFollowUp(String answer) {
+        String text = answer == null ? "" : answer.trim();
+        String lower = text.toLowerCase(Locale.ROOT);
+
+        if (text.length() < 10 || lower.contains("不知道") || lower.contains("不太清楚")) {
+            return new AnswerEvaluationResult(
+                    "INCORRECT", 1,
+                    "还没有展开，建议先直接回答追问的核心点。",
+                    List.of("针对追问的核心点"), 0.5);
+        }
+
+        boolean substantive = text.length() >= 40
+                || lower.contains("因为")
+                || lower.contains("所以")
+                || lower.contains("首先")
+                || lower.contains("然后")
+                || lower.contains("例如")
+                || lower.contains("具体");
+        if (substantive) {
+            return new AnswerEvaluationResult(
+                    "CORRECT", 4,
+                    "回答有展开，能对应追问的重点。",
+                    List.of(), 0.7);
+        }
+        return new AnswerEvaluationResult(
+                "PARTIAL", 3,
+                "方向基本对，但还不够具体，建议补充关键步骤或例子。",
+                List.of("更具体的步骤或例子"), 0.6);
     }
 
     private boolean containsAnyToken(String answerLower, String point) {

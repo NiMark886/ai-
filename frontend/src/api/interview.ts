@@ -51,6 +51,8 @@ export interface AnswerEvaluationView {
   id: number
   candidateMessageId: number
   questionId: number
+  promptText: string | null
+  promptType: string | null
   correctness: 'CORRECT' | 'PARTIAL' | 'INSUFFICIENT' | 'INCORRECT'
   score: number
   comment: string

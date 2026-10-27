@@ -87,6 +87,29 @@ class InterviewConversationServiceTest {
     }
 
     @Test
+    void followUpEvaluationDoesNotReuseOriginalQuestionReferencePoints() throws Exception {
+        User user = createUser();
+        Resume resume = createResume(user);
+        Long jobId = jobTemplateMapper.selectList(null).get(0).getId();
+        InterviewSessionView session = interviewService.create(user.getId(),
+                new CreateInterviewRequest(jobId, resume.getId(), "STANDARD", 30, "STANDARD", "PRACTICE"));
+
+        InterviewSessionView started = conversationService.start(user.getId(), session.id());
+        AnswerResult first = conversationService.answer(user.getId(), session.id(),
+                new AnswerRequest(started.currentQuestionId(), "不知道"));
+        assertThat(first.replyType()).isEqualTo("FOLLOW_UP");
+
+        AnswerResult second = conversationService.answer(user.getId(), session.id(),
+                new AnswerRequest(started.currentQuestionId(), "会重新分布到新的位置"));
+
+        assertThat(second.evaluation()).isNotNull();
+        assertThat(second.evaluation().promptType()).isEqualTo("FOLLOW_UP");
+        assertThat(second.evaluation().promptText()).contains("扩容后元素如何重新分布");
+        assertThat(second.evaluation().missingPoints())
+                .doesNotContain("链表转红黑树阈值 8");
+    }
+
+    @Test
     void practiceModeReturnsEvaluation() throws Exception {
         User user = createUser();
         Resume resume = createResume(user);

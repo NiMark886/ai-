@@ -22,6 +22,10 @@ public class AnswerEvaluation {
 
     private Long questionId;
 
+    private String promptText;
+
+    private String promptType;
+
     private Long candidateMessageId;
 
     private String correctness;

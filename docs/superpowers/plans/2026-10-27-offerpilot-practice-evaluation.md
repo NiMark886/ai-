@@ -1210,4 +1210,9 @@ git commit -m "feat: add practice mode real-time answer evaluation"
   - Mock 评估器的 `comment` 只输出覆盖情况，缺失要点由前端单独展示，避免“建议补充”重复。
   - `meta` SSE 事件增加 `candidateMessageId`，前端把临时候选人消息 ID 替换为真实 ID，点评卡片能即时挂到对应回答下。
   - 普通模拟面试模式不产生 `answer_evaluation`，不显示点评卡片。
+- 追问点评修复（2026-10-27）：
+  - V6 迁移为 `answer_evaluation` 增加 `prompt_text` / `prompt_type`。
+  - 评估器增加当前评分对象上下文；追问回答按“是否针对追问作答”评估，不再套用原题参考要点。
+  - 点评卡片显示“针对追问”和追问内容；原题点评显示“针对本题”。
+  - 新增回归测试：追问回答的 `missingPoints` 不得包含原题参考要点。
 - 待推送：分支提交在本地，W3 的 PR #3 仍未合并。

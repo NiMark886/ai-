@@ -47,6 +47,11 @@ class AiProviderControllerIT {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.length()").value(4));
 
+        mockMvc.perform(get("/api/ai/providers/status").header(AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.aiEnabled").value(false))
+                .andExpect(jsonPath("$.data.defaultModel").value("deepseek-chat"));
+
         MvcResult created = mockMvc.perform(post("/api/ai/providers")
                         .header(AUTHORIZATION, "Bearer " + token)
                         .contentType("application/json")

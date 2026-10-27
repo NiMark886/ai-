@@ -3,6 +3,7 @@ package com.offerpilot.ai.provider.web;
 import com.offerpilot.ai.provider.service.AiProviderService;
 import com.offerpilot.ai.provider.web.dto.AiProviderPreset;
 import com.offerpilot.ai.provider.web.dto.AiProviderRequest;
+import com.offerpilot.ai.provider.web.dto.AiProviderStatus;
 import com.offerpilot.ai.provider.web.dto.AiProviderTestResult;
 import com.offerpilot.ai.provider.web.dto.AiProviderView;
 import com.offerpilot.common.api.ApiResponse;
@@ -37,6 +38,11 @@ public class AiProviderController {
     @GetMapping("/presets")
     public ApiResponse<List<AiProviderPreset>> presets() {
         return ApiResponse.ok(providerService.presets());
+    }
+
+    @GetMapping("/status")
+    public ApiResponse<AiProviderStatus> status() {
+        return ApiResponse.ok(providerService.status());
     }
 
     @PostMapping

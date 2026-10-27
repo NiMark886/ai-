@@ -81,6 +81,7 @@ function sampleTopics(job: JobTemplate): string[] {
           题库管理
         </el-button>
         <el-button link type="primary" @click="router.push('/history')">成长记录</el-button>
+        <el-button link type="primary" @click="router.push('/settings')">API 设置</el-button>
         <el-button link type="primary" @click="handleLogout">退出登录</el-button>
       </div>
     </header>

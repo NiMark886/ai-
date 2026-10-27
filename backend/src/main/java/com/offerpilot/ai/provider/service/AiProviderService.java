@@ -6,12 +6,14 @@ import com.offerpilot.ai.provider.domain.AiProvider;
 import com.offerpilot.ai.provider.mapper.AiProviderMapper;
 import com.offerpilot.ai.provider.web.dto.AiProviderPreset;
 import com.offerpilot.ai.provider.web.dto.AiProviderRequest;
+import com.offerpilot.ai.provider.web.dto.AiProviderStatus;
 import com.offerpilot.ai.provider.web.dto.AiProviderTestResult;
 import com.offerpilot.ai.provider.web.dto.AiProviderView;
 import com.offerpilot.ai.service.AiChatClientFactory;
 import com.offerpilot.common.exception.BusinessException;
 import com.offerpilot.common.exception.ErrorCode;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,13 +27,19 @@ public class AiProviderService {
     private final AiProviderMapper providerMapper;
     private final ApiKeyCipher apiKeyCipher;
     private final AiChatClientFactory chatClientFactory;
+    private final boolean aiEnabled;
+    private final String defaultModel;
 
     public AiProviderService(AiProviderMapper providerMapper,
                              ApiKeyCipher apiKeyCipher,
-                             AiChatClientFactory chatClientFactory) {
+                             AiChatClientFactory chatClientFactory,
+                             @Value("${app.ai.enabled:false}") boolean aiEnabled,
+                             @Value("${spring.ai.openai.chat.options.model:deepseek-chat}") String defaultModel) {
         this.providerMapper = providerMapper;
         this.apiKeyCipher = apiKeyCipher;
         this.chatClientFactory = chatClientFactory;
+        this.aiEnabled = aiEnabled;
+        this.defaultModel = defaultModel;
     }
 
     public List<AiProviderView> list(Long userId) {
@@ -48,6 +56,10 @@ public class AiProviderService {
         return Arrays.stream(AiProviderType.values())
                 .map(AiProviderPreset::from)
                 .toList();
+    }
+
+    public AiProviderStatus status() {
+        return new AiProviderStatus(aiEnabled, defaultModel);
     }
 
     @Transactional

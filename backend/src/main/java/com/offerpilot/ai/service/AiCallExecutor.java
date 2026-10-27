@@ -9,7 +9,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
 
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 /**
@@ -65,6 +67,32 @@ public class AiCallExecutor {
         return call(scene, promptVersion, aiCall, parser, null);
     }
 
+    public Flux<String> stream(String scene,
+                               String promptVersion,
+                               Supplier<Flux<String>> aiStream,
+                               Supplier<String> fallback) {
+        long start = System.currentTimeMillis();
+        StringBuilder collected = new StringBuilder();
+        AtomicBoolean failed = new AtomicBoolean(false);
+        return Flux.defer(aiStream)
+                .doOnNext(collected::append)
+                .doOnComplete(() -> {
+                    if (!failed.get()) {
+                        record(scene, promptVersion, null, start, true, false, null);
+                    }
+                })
+                .onErrorResume(ex -> {
+                    failed.set(true);
+                    record(scene, promptVersion, null, start, false, fallback != null, errorCode(ex));
+                    log.warn("AI stream failed: scene={}, version={}, fallback={}",
+                            scene, promptVersion, fallback != null, ex);
+                    if (fallback != null && collected.length() == 0) {
+                        return Flux.just(fallback.get());
+                    }
+                    return Flux.empty();
+                });
+    }
+
     private void record(String scene,
                         String promptVersion,
                         ChatResponse response,
@@ -104,7 +132,7 @@ public class AiCallExecutor {
         return null;
     }
 
-    private String errorCode(Exception ex) {
+    private String errorCode(Throwable ex) {
         String name = ex.getClass().getSimpleName();
         return name.length() > 64 ? name.substring(0, 64) : name;
     }

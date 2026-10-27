@@ -3,13 +3,17 @@ package com.offerpilot.interview.web;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.offerpilot.common.api.ApiResponse;
 import com.offerpilot.interview.service.InterviewConversationService;
+import com.offerpilot.interview.web.dto.AnswerEvaluationResult;
 import com.offerpilot.interview.web.dto.AnswerEvaluationView;
 import com.offerpilot.interview.web.dto.AnswerRequest;
-import com.offerpilot.interview.web.dto.AnswerResult;
+import com.offerpilot.interview.web.dto.AnswerStreamCompletion;
+import com.offerpilot.interview.web.dto.AnswerStreamContext;
 import com.offerpilot.interview.web.dto.HintResult;
 import com.offerpilot.interview.web.dto.InterviewSessionView;
 import com.offerpilot.interview.web.dto.MessageView;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
@@ -23,7 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
-import java.util.ArrayList;
+import java.io.UncheckedIOException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +35,8 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/interviews/{id}")
 public class InterviewConversationController {
+
+    private static final Logger log = LoggerFactory.getLogger(InterviewConversationController.class);
 
     private final InterviewConversationService conversationService;
     private final ThreadPoolTaskExecutor sseExecutor;
@@ -66,9 +72,9 @@ public class InterviewConversationController {
     public SseEmitter answer(@AuthenticationPrincipal Long userId,
                              @PathVariable Long id,
                              @Valid @RequestBody AnswerRequest request) {
-        AnswerResult result = conversationService.answer(userId, id, request);
-        SseEmitter emitter = new SseEmitter(60_000L);
-        sseExecutor.execute(() -> stream(emitter, result));
+        AnswerStreamContext context = conversationService.beginAnswerStream(userId, id, request);
+        SseEmitter emitter = new SseEmitter(120_000L);
+        sseExecutor.execute(() -> stream(emitter, userId, context));
         return emitter;
     }
 
@@ -87,50 +93,104 @@ public class InterviewConversationController {
         return ApiResponse.ok(conversationService.finish(userId, id));
     }
 
-    private void stream(SseEmitter emitter, AnswerResult result) {
+    private void stream(SseEmitter emitter, Long userId, AnswerStreamContext context) {
+        StringBuilder reply = new StringBuilder();
+        boolean finalized = false;
+        AnswerEvaluationResult evaluation = null;
+        boolean evaluationAttempted = false;
         try {
             Map<String, Object> meta = new LinkedHashMap<>();
-            meta.put("candidateMessageId", result.candidateMessageId());
-            meta.put("interviewerMessageId", result.interviewerMessageId());
-            meta.put("questionId", result.questionId());
-            meta.put("replyType", result.replyType());
+            meta.put("candidateMessageId", context.candidateMessageId());
+            meta.put("interviewerMessageId", context.interviewerMessageId());
+            meta.put("questionId", context.questionId());
+            meta.put("replyType", context.replyType());
             emitter.send(SseEmitter.event().name("meta").data(toJson(meta)));
 
-            for (String chunk : chunks(result.replyText())) {
-                emitter.send(SseEmitter.event().name("delta").data(toJson(Map.of("text", chunk))));
-                Thread.sleep(25);
+            conversationService.streamReply(context)
+                    .doOnNext(chunk -> {
+                        reply.append(chunk);
+                        try {
+                            emitter.send(SseEmitter.event().name("delta")
+                                    .data(toJson(Map.of("text", chunk))));
+                        } catch (IOException ex) {
+                            throw new UncheckedIOException(ex);
+                        }
+                    })
+                    .blockLast();
+
+            evaluationAttempted = true;
+            try {
+                evaluation = conversationService.evaluateStreamAnswer(userId, context);
+            } catch (Exception ex) {
+                log.warn("Streaming answer evaluation failed: sessionId={}", context.sessionId(), ex);
             }
 
-            if (result.evaluation() != null) {
-                emitter.send(SseEmitter.event().name("evaluation").data(toJson(result.evaluation())));
+            AnswerStreamCompletion completion = conversationService.completeAnswerStream(
+                    userId, context, reply.toString(), evaluation);
+            finalized = true;
+            if (completion.evaluation() != null) {
+                emitter.send(SseEmitter.event().name("evaluation")
+                        .data(toJson(completion.evaluation())));
             }
-
-            Map<String, Object> done = new LinkedHashMap<>();
-            done.put("sessionStatus", result.sessionStatus());
-            done.put("currentQuestionId", result.currentQuestionId());
-            done.put("completed", result.completed());
-            emitter.send(SseEmitter.event().name("done").data(toJson(done)));
+            sendDone(emitter, completion);
             emitter.complete();
         } catch (Exception ex) {
-            try {
-                emitter.send(SseEmitter.event().name("error")
-                        .data(toJson(Map.of("message", "面试官回复失败"))));
-            } catch (IOException ignored) {
-                // client already disconnected
+            log.warn("Streaming answer failed: sessionId={}, replyType={}, finalized={}",
+                    context.sessionId(), context.replyType(), finalized, ex);
+            if (!finalized) {
+                if (!evaluationAttempted && context.practice()) {
+                    evaluationAttempted = true;
+                    try {
+                        evaluation = conversationService.evaluateStreamAnswer(userId, context);
+                    } catch (Exception evaluationEx) {
+                        log.warn("Streaming answer evaluation failed during finalization: sessionId={}",
+                                context.sessionId(), evaluationEx);
+                    }
+                }
+                try {
+                    AnswerStreamCompletion completion = conversationService.completeAnswerStream(
+                            userId, context,
+                            reply.length() == 0 ? "抱歉，面试官回复生成失败，请继续回答。" : reply.toString(),
+                            evaluation);
+                    finalized = true;
+                    if (completion.evaluation() != null) {
+                        try {
+                            emitter.send(SseEmitter.event().name("evaluation")
+                                    .data(toJson(completion.evaluation())));
+                        } catch (IOException sendEx) {
+                            log.debug("Failed to send evaluation event: sessionId={}",
+                                    context.sessionId(), sendEx);
+                        }
+                    }
+                    sendError(emitter);
+                    sendDone(emitter, completion);
+                    emitter.complete();
+                    return;
+                } catch (Exception completionEx) {
+                    log.warn("Failed to finalize streaming answer: sessionId={}",
+                            context.sessionId(), completionEx);
+                }
             }
+            sendError(emitter);
             emitter.completeWithError(ex);
         }
     }
 
-    private List<String> chunks(String text) {
-        List<String> chunks = new ArrayList<>();
-        if (text == null || text.isEmpty()) {
-            return chunks;
+    private void sendDone(SseEmitter emitter, AnswerStreamCompletion completion) throws IOException {
+        Map<String, Object> done = new LinkedHashMap<>();
+        done.put("sessionStatus", completion.sessionStatus());
+        done.put("currentQuestionId", completion.currentQuestionId());
+        done.put("completed", completion.completed());
+        emitter.send(SseEmitter.event().name("done").data(toJson(done)));
+    }
+
+    private void sendError(SseEmitter emitter) {
+        try {
+            emitter.send(SseEmitter.event().name("error")
+                    .data(toJson(Map.of("message", "面试官回复失败"))));
+        } catch (IOException ignored) {
+            // client already disconnected
         }
-        for (int i = 0; i < text.length(); i += 24) {
-            chunks.add(text.substring(i, Math.min(text.length(), i + 24)));
-        }
-        return chunks;
     }
 
     private String toJson(Object value) {

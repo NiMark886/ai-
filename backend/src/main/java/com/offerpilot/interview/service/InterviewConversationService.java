@@ -18,11 +18,14 @@ import com.offerpilot.interview.web.dto.AnswerEvaluationResult;
 import com.offerpilot.interview.web.dto.AnswerEvaluationView;
 import com.offerpilot.interview.web.dto.AnswerRequest;
 import com.offerpilot.interview.web.dto.AnswerResult;
+import com.offerpilot.interview.web.dto.AnswerStreamCompletion;
+import com.offerpilot.interview.web.dto.AnswerStreamContext;
 import com.offerpilot.interview.web.dto.HintResult;
 import com.offerpilot.interview.web.dto.InterviewSessionView;
 import com.offerpilot.interview.web.dto.MessageView;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import reactor.core.publisher.Flux;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -153,6 +156,120 @@ public class InterviewConversationService {
         InterviewMessage interviewer = addMessage(sessionId, question.getId(), "INTERVIEWER", "CLOSING", reply);
         return new AnswerResult(candidate.getId(), interviewer.getId(), question.getId(),
                 "CLOSING", reply, "COMPLETED", null, true, evaluation);
+    }
+
+    @Transactional
+    public AnswerStreamContext beginAnswerStream(Long userId, Long sessionId, AnswerRequest request) {
+        InterviewSession session = loadOwned(userId, sessionId);
+        if (!"IN_PROGRESS".equals(session.getStatus())) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "当前面试不在进行中");
+        }
+
+        InterviewQuestion question = questionMapper.selectById(request.questionId());
+        if (question == null || !sessionId.equals(question.getSessionId())
+                || !"ASKED".equals(question.getStatus())) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "当前题目不可回答");
+        }
+
+        InterviewMessage candidate = addMessage(sessionId, question.getId(), "CANDIDATE", "ANSWER", request.content());
+        InterviewMessage prompt = lastInterviewerMessage(sessionId, question.getId());
+        String promptType = prompt != null && "FOLLOW_UP".equals(prompt.getMessageType())
+                ? "FOLLOW_UP" : "QUESTION";
+        String promptText = "FOLLOW_UP".equals(promptType) && prompt != null
+                ? prompt.getContent() : question.getContent();
+
+        String replyType;
+        Long nextQuestionId = null;
+        if (shouldFollowUp(question, request.content())) {
+            int count = question.getFollowUpCount() == null ? 0 : question.getFollowUpCount();
+            question.setFollowUpCount(count + 1);
+            questionMapper.updateById(question);
+            replyType = "FOLLOW_UP";
+        } else {
+            InterviewQuestion next = nextPending(sessionId);
+            if (next != null) {
+                replyType = "QUESTION";
+                nextQuestionId = next.getId();
+            } else {
+                replyType = "CLOSING";
+            }
+        }
+
+        InterviewMessage interviewer = addMessage(sessionId, question.getId(), "INTERVIEWER", replyType, "");
+        return new AnswerStreamContext(sessionId, question.getId(), candidate.getId(), interviewer.getId(),
+                replyType, nextQuestionId, "PRACTICE".equals(session.getMode()),
+                promptText, promptType, request.content());
+    }
+
+    public Flux<String> streamReply(AnswerStreamContext context) {
+        InterviewQuestion question = questionMapper.selectById(context.questionId());
+        if (question == null) {
+            return Flux.error(new BusinessException(ErrorCode.NOT_FOUND, "题目不存在"));
+        }
+        ReplyType type = ReplyType.valueOf(context.replyType());
+        List<InterviewMessage> history = history(context.sessionId()).stream()
+                .filter(message -> !context.interviewerMessageId().equals(message.getId()))
+                .toList();
+        return replyGenerator.stream(question, type, context.answer(), history);
+    }
+
+    public AnswerEvaluationResult evaluateStreamAnswer(Long userId, AnswerStreamContext context) {
+        if (!context.practice()) {
+            return null;
+        }
+        loadOwned(userId, context.sessionId());
+        InterviewQuestion question = questionMapper.selectById(context.questionId());
+        if (question == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "题目不存在");
+        }
+        return answerEvaluator.evaluate(question, context.promptText(), context.promptType(), context.answer());
+    }
+
+    @Transactional
+    public AnswerStreamCompletion completeAnswerStream(Long userId, AnswerStreamContext context,
+                                                        String replyText,
+                                                        AnswerEvaluationResult evaluationResult) {
+        InterviewSession session = loadOwned(userId, context.sessionId());
+        InterviewQuestion question = questionMapper.selectById(context.questionId());
+        if (question == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "题目不存在");
+        }
+        InterviewMessage interviewer = messageMapper.selectById(context.interviewerMessageId());
+        if (interviewer == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "面试官消息不存在");
+        }
+        interviewer.setContent(replyText);
+        messageMapper.updateById(interviewer);
+
+        AnswerEvaluationView evaluation = null;
+        if (evaluationResult != null) {
+            InterviewMessage candidate = messageMapper.selectById(context.candidateMessageId());
+            if (candidate != null) {
+                evaluation = persistEvaluation(session, question, candidate,
+                        context.promptText(), context.promptType(), evaluationResult);
+            }
+        }
+
+        boolean completed = false;
+        if (!"FOLLOW_UP".equals(context.replyType())) {
+            question.setStatus("ANSWERED");
+            question.setAnsweredAt(LocalDateTime.now());
+            questionMapper.updateById(question);
+
+            if (context.nextQuestionId() != null) {
+                InterviewQuestion next = questionMapper.selectById(context.nextQuestionId());
+                if (next == null || !"PENDING".equals(next.getStatus())) {
+                    throw new BusinessException(ErrorCode.CONFLICT, "下一题状态已发生变化");
+                }
+                ask(session, next);
+            } else {
+                complete(session);
+                completed = true;
+            }
+        }
+        sessionMapper.updateById(session);
+        return new AnswerStreamCompletion(session.getStatus(), session.getCurrentQuestionId(),
+                completed, evaluation);
     }
 
     @Transactional
@@ -313,6 +430,15 @@ public class InterviewConversationService {
             return null;
         }
         AnswerEvaluationResult result = answerEvaluator.evaluate(question, promptText, promptType, answer);
+        return persistEvaluation(session, question, candidate, promptText, promptType, result);
+    }
+
+    private AnswerEvaluationView persistEvaluation(InterviewSession session,
+                                                   InterviewQuestion question,
+                                                   InterviewMessage candidate,
+                                                   String promptText,
+                                                   String promptType,
+                                                   AnswerEvaluationResult result) {
         AnswerEvaluation evaluation = new AnswerEvaluation();
         evaluation.setSessionId(session.getId());
         evaluation.setQuestionId(question.getId());

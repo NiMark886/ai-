@@ -8,6 +8,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -35,34 +36,10 @@ public class SpringAiInterviewerReplyGenerator implements InterviewerReplyGenera
     @Override
     public String generate(InterviewQuestion question, ReplyType type, String candidateAnswer,
                            List<InterviewMessage> history) {
-        String historyText = history.stream()
-                .map(message -> message.getRole() + ": " + message.getContent())
-                .collect(Collectors.joining("\n"));
-        String instruction = switch (type) {
-            case OPENING -> "请用面试官口吻开场，并自然地提出第一题。";
-            case QUESTION -> "请用面试官口吻简短过渡，然后提出下一题。";
-            case FOLLOW_UP -> "请针对候选人的回答追问一个更具体的问题，不要重复原题。";
-            case CLOSING -> "请用面试官口吻结束面试，感谢候选人。";
-        };
         return aiCallExecutor.call(SCENE, PROMPT_VERSION,
                 () -> chatClient.prompt()
-                        .system("""
-                                你是一名资深技术面试官。只输出面试官要说的话，不要解释，不要 markdown。
-                                控制在一到三句话，语气专业、自然。
-                                """)
-                        .user("""
-                                当前类型：%s
-                                指令：%s
-                                当前题目：%s
-                                候选人回答：%s
-                                最近对话：
-                                %s
-                                """.formatted(
-                                type.name(),
-                                instruction,
-                                question == null ? "无" : question.getContent(),
-                                candidateAnswer == null ? "无" : candidateAnswer,
-                                historyText))
+                        .system(systemPrompt())
+                        .user(userPrompt(question, type, candidateAnswer, history))
                         .call()
                         .chatResponse(),
                 response -> {
@@ -73,5 +50,50 @@ public class SpringAiInterviewerReplyGenerator implements InterviewerReplyGenera
                     return content.trim();
                 },
                 () -> fallback.generate(question, type, candidateAnswer, history));
+    }
+
+    @Override
+    public Flux<String> stream(InterviewQuestion question, ReplyType type, String candidateAnswer,
+                               List<InterviewMessage> history) {
+        return aiCallExecutor.stream(SCENE, PROMPT_VERSION,
+                () -> chatClient.prompt()
+                        .system(systemPrompt())
+                        .user(userPrompt(question, type, candidateAnswer, history))
+                        .stream()
+                        .content(),
+                () -> fallback.generate(question, type, candidateAnswer, history));
+    }
+
+    private String systemPrompt() {
+        return """
+                你是一名资深技术面试官。只输出面试官要说的话，不要解释，不要 markdown。
+                控制在一到三句话，语气专业、自然。
+                """;
+    }
+
+    private String userPrompt(InterviewQuestion question, ReplyType type, String candidateAnswer,
+                               List<InterviewMessage> history) {
+        String historyText = history.stream()
+                .map(message -> message.getRole() + ": " + message.getContent())
+                .collect(Collectors.joining("\n"));
+        String instruction = switch (type) {
+            case OPENING -> "请用面试官口吻开场，并自然地提出第一题。";
+            case QUESTION -> "请用面试官口吻简短过渡，然后提出下一题。";
+            case FOLLOW_UP -> "请针对候选人的回答追问一个更具体的问题，不要重复原题。";
+            case CLOSING -> "请用面试官口吻结束面试，感谢候选人。";
+        };
+        return """
+                当前类型：%s
+                指令：%s
+                当前题目：%s
+                候选人回答：%s
+                最近对话：
+                %s
+                """.formatted(
+                type.name(),
+                instruction,
+                question == null ? "无" : question.getContent(),
+                candidateAnswer == null ? "无" : candidateAnswer,
+                historyText);
     }
 }

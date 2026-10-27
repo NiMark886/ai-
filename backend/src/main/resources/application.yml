@@ -8,12 +8,24 @@ spring:
     active: ${SPRING_PROFILES_ACTIVE:local}
   autoconfigure:
     exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 12MB
   flyway:
     enabled: true
     locations: classpath:db/migration
   jackson:
     default-property-inclusion: non_null
     time-zone: Asia/Shanghai
+  ai:
+    openai:
+      base-url: https://api.deepseek.com
+      api-key: ${DEEPSEEK_API_KEY:demo-key}
+      chat:
+        options:
+          model: deepseek-chat
+          temperature: 0.4
 
 mybatis-plus:
   configuration:
@@ -42,6 +54,11 @@ app:
     secret: ${JWT_SECRET:SrRRpFGv51wnxllAChZ6Ql1Bty5dvWIGIzbde9nqSxwIkjryZELF+htOBHGb6pX7jHjF0JHXoJUOyRtO7YsStQ==}
     access-token-ttl: PT2H
     refresh-token-ttl: P7D
+  ai:
+    enabled: ${APP_AI_ENABLED:false}
+  storage:
+    local-root: ${OFFERPILOT_UPLOAD_DIR:./data/uploads}
+    max-size: 10485760
 
 logging:
   pattern:

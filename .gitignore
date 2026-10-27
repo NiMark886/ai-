@@ -32,3 +32,7 @@ Thumbs.db
 # H2
 *.mv.db
 *.trace.db
+
+# Local uploads
+backend/data/
+data/uploads/

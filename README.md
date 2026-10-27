@@ -2,9 +2,9 @@
 
 面向 Java 后端 / Java+AI 求职者的垂直 AI 模拟面试教练。
 
-当前进度：P0 Week 1 已完成（工程骨架、JWT 认证、岗位模板、登录注册页、岗位选择页）。
+当前进度：P0 Week 2 已完成（简历上传解析、创建面试、面试蓝图、前端创建弹窗与预览页）。
 
-下一步：P0 Week 2（简历上传解析、创建面试、面试蓝图）。
+下一步：P0 Week 3（多轮对话、SSE、追问/提示/跳过、状态机）。
 
 ## 目录
 
@@ -70,6 +70,34 @@ mvn test
 | POST | `/api/auth/logout` | 注销 refresh token |
 | GET | `/api/auth/me` | 当前用户 |
 | GET | `/api/job-templates` | 岗位模板列表 |
+| POST | `/api/resumes` | 上传 PDF/DOCX 简历并解析 |
+| GET | `/api/resumes` | 当前用户简历列表 |
+| GET | `/api/resumes/{id}` | 简历详情 |
+| DELETE | `/api/resumes/{id}` | 删除简历 |
+| POST | `/api/interviews` | 创建面试并生成蓝图 |
+| GET | `/api/interviews/{id}` | 面试详情与题目 |
+| GET | `/api/interviews` | 面试历史 |
+
+## AI 配置（可选）
+
+默认 `app.ai.enabled=false`，使用确定性的 Mock 蓝图生成器，不需要 DeepSeek Key。
+
+启用真实 AI：
+
+```bash
+export DEEPSEEK_API_KEY=sk-...
+export APP_AI_ENABLED=true
+cd backend && mvn spring-boot:run
+```
+
+PowerShell:
+```powershell
+$env:DEEPSEEK_API_KEY="sk-..."
+$env:APP_AI_ENABLED="true"
+mvn spring-boot:run
+```
+
+AI 调用失败会自动回退 Mock 生成器，不会阻塞面试创建。上传的简历默认保存在 `backend/data/uploads`，可通过 `OFFERPILOT_UPLOAD_DIR` 修改。
 
 ## 开发约定
 

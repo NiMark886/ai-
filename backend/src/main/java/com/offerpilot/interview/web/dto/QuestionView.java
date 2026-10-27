@@ -9,6 +9,9 @@ public record QuestionView(
         Integer difficulty,
         String content,
         List<String> knowledgeTags,
-        List<String> referencePoints
+        List<String> referencePoints,
+        String status,
+        Integer followUpCount,
+        Integer hintCount
 ) {
 }

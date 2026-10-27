@@ -145,7 +145,10 @@ public class InterviewService {
                 question.getDifficulty(),
                 question.getContent(),
                 readList(question.getKnowledgeTags()),
-                readList(question.getReferencePoints()));
+                readList(question.getReferencePoints()),
+                question.getStatus(),
+                question.getFollowUpCount(),
+                question.getHintCount());
     }
 
     private InterviewSessionView toView(InterviewSession session, String jobTitle,
@@ -159,6 +162,7 @@ public class InterviewService {
                 session.getDurationMinutes(),
                 session.getPersona(),
                 session.getStatus(),
+                session.getCurrentQuestionId(),
                 session.getCreatedAt(),
                 questions);
     }

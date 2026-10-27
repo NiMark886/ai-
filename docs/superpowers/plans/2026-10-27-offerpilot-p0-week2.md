@@ -3513,3 +3513,20 @@ Expected: 工作区干净。
 - **Placeholder scan:** 没有 TBD/TODO；所有代码步骤都有完整代码；`TestFiles` 的可见性问题已在 Task 9 中明确要求改为 public。
 - **Type consistency:** `ResumeProfile`、`ResumeView`、`BlueprintRequest`、`InterviewBlueprint`、`InterviewSessionView`、`QuestionView` 的字段在前后端保持一致；`MockBlueprintGenerator` 与 `SpringAiBlueprintGenerator` 都实现 `InterviewBlueprintGenerator`，按 `app.ai.enabled` 条件启用。
 - **默认可用性:** `app.ai.enabled=false` 时全部功能可用，不依赖 DeepSeek Key；开启 AI 后失败自动回退 Mock。
+
+---
+
+## 执行记录（2026-10-27）
+
+- 分支：`feat/p0-week2`（基于 `feat/p0-week1`）。
+- 后端测试：`mvn -f backend/pom.xml test` → **21 tests, 0 failures, 0 errors**（含 AI 模式 Bean 装配测试）。
+- 前端构建：`npm --prefix frontend run build` → 成功。
+- 浏览器验收（Playwright + Chrome）：
+  - 注册 → 首页 → 打开创建面试弹窗 → 上传 DOCX 简历 → 解析出「张三 / 3 年经验 / Java、Spring Boot…」→ 选择 30 分钟标准面 → 生成蓝图 → 跳转 `/interviews/1`。
+  - 面试预览页显示 8 道题，分组为「基础 3 / 项目 3 / 场景 1 / AI 工程 1」。
+- 实施中的调整：
+  - `MockBlueprintGenerator` 改为常驻 Bean，`SpringAiBlueprintGenerator` 加 `@Primary` + 条件启用，保证 AI 模式可注入 Mock 作为回退。
+  - 面试题数量分配修正为 6/8/10 题三种时长严格匹配总数。
+  - 新增 `AiWiringTest` 验证 `app.ai.enabled=true` 时优先使用 `SpringAiBlueprintGenerator`。
+  - 前端上传错误回调使用 `options.onError(error as never)` 适配 Element Plus 的 `UploadAjaxError` 类型。
+- 尚未推送：GitHub 当前网络不可达；`feat/p0-week2` 的所有提交仍在本地，待网络恢复后推送。

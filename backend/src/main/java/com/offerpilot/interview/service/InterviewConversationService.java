@@ -1,6 +1,7 @@
 package com.offerpilot.interview.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.offerpilot.common.exception.BusinessException;
@@ -67,20 +68,29 @@ public class InterviewConversationService {
             return interviewService.get(userId, sessionId);
         }
         if ("READY".equals(session.getStatus())) {
-            session.setStatus("IN_PROGRESS");
-            session.setStartedAt(LocalDateTime.now());
-            InterviewQuestion first = nextPending(sessionId);
-            if (first == null) {
-                complete(session);
-                addMessage(sessionId, null, "INTERVIEWER", "CLOSING",
-                        replyGenerator.generate(null, ReplyType.CLOSING, null, List.of()));
+            LocalDateTime startedAt = LocalDateTime.now();
+            int started = sessionMapper.update(null, new LambdaUpdateWrapper<InterviewSession>()
+                    .eq(InterviewSession::getId, sessionId)
+                    .eq(InterviewSession::getUserId, userId)
+                    .eq(InterviewSession::getStatus, "READY")
+                    .set(InterviewSession::getStatus, "IN_PROGRESS")
+                    .set(InterviewSession::getStartedAt, startedAt));
+            if (started == 1) {
+                session.setStatus("IN_PROGRESS");
+                session.setStartedAt(startedAt);
+                InterviewQuestion first = nextPending(sessionId);
+                if (first == null) {
+                    complete(session);
+                    addMessage(sessionId, null, "INTERVIEWER", "CLOSING",
+                            replyGenerator.generate(null, ReplyType.CLOSING, null, List.of()));
+                    sessionMapper.updateById(session);
+                    return interviewService.get(userId, sessionId);
+                }
+                ask(session, first);
+                addMessage(sessionId, first.getId(), "INTERVIEWER", "OPENING",
+                        replyGenerator.generate(first, ReplyType.OPENING, null, List.of()));
                 sessionMapper.updateById(session);
-                return interviewService.get(userId, sessionId);
             }
-            ask(session, first);
-            addMessage(sessionId, first.getId(), "INTERVIEWER", "OPENING",
-                    replyGenerator.generate(first, ReplyType.OPENING, null, List.of()));
-            sessionMapper.updateById(session);
         }
         return interviewService.get(userId, sessionId);
     }
@@ -111,10 +121,18 @@ public class InterviewConversationService {
         }
 
         InterviewQuestion question = questionMapper.selectById(request.questionId());
-        if (question == null || !sessionId.equals(question.getSessionId())
-                || !"ASKED".equals(question.getStatus())) {
+        if (question == null || !sessionId.equals(question.getSessionId())) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "当前题目不可回答");
         }
+        int claimed = questionMapper.update(null, new LambdaUpdateWrapper<InterviewQuestion>()
+                .eq(InterviewQuestion::getId, question.getId())
+                .eq(InterviewQuestion::getSessionId, sessionId)
+                .eq(InterviewQuestion::getStatus, "ASKED")
+                .set(InterviewQuestion::getStatus, "ANSWERING"));
+        if (claimed == 0) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "当前题目不可回答");
+        }
+        question.setStatus("ANSWERING");
 
         InterviewMessage candidate = addMessage(sessionId, question.getId(), "CANDIDATE", "ANSWER", request.content());
         InterviewMessage prompt = lastInterviewerMessage(sessionId, question.getId());
@@ -130,15 +148,24 @@ public class InterviewConversationService {
             int count = question.getFollowUpCount() == null ? 0 : question.getFollowUpCount();
             question.setFollowUpCount(count + 1);
             questionMapper.updateById(question);
+            questionMapper.update(null, new LambdaUpdateWrapper<InterviewQuestion>()
+                    .eq(InterviewQuestion::getId, question.getId())
+                    .eq(InterviewQuestion::getStatus, "ANSWERING")
+                    .set(InterviewQuestion::getStatus, "ASKED"));
             String reply = replyGenerator.generate(question, ReplyType.FOLLOW_UP, request.content(), historyMessages);
             InterviewMessage interviewer = addMessage(sessionId, question.getId(), "INTERVIEWER", "FOLLOW_UP", reply);
             return new AnswerResult(candidate.getId(), interviewer.getId(), question.getId(),
                     "FOLLOW_UP", reply, session.getStatus(), question.getId(), false, evaluation);
         }
 
-        question.setStatus("ANSWERED");
-        question.setAnsweredAt(LocalDateTime.now());
-        questionMapper.updateById(question);
+        int answered = questionMapper.update(null, new LambdaUpdateWrapper<InterviewQuestion>()
+                .eq(InterviewQuestion::getId, question.getId())
+                .eq(InterviewQuestion::getStatus, "ANSWERING")
+                .set(InterviewQuestion::getStatus, "ANSWERED")
+                .set(InterviewQuestion::getAnsweredAt, LocalDateTime.now()));
+        if (answered == 0) {
+            throw new BusinessException(ErrorCode.CONFLICT, "题目状态已发生变化");
+        }
 
         InterviewQuestion next = nextPending(sessionId);
         if (next != null) {
@@ -166,10 +193,18 @@ public class InterviewConversationService {
         }
 
         InterviewQuestion question = questionMapper.selectById(request.questionId());
-        if (question == null || !sessionId.equals(question.getSessionId())
-                || !"ASKED".equals(question.getStatus())) {
+        if (question == null || !sessionId.equals(question.getSessionId())) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "当前题目不可回答");
         }
+        int claimed = questionMapper.update(null, new LambdaUpdateWrapper<InterviewQuestion>()
+                .eq(InterviewQuestion::getId, question.getId())
+                .eq(InterviewQuestion::getSessionId, sessionId)
+                .eq(InterviewQuestion::getStatus, "ASKED")
+                .set(InterviewQuestion::getStatus, "ANSWERING"));
+        if (claimed == 0) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "当前题目不可回答");
+        }
+        question.setStatus("ANSWERING");
 
         InterviewMessage candidate = addMessage(sessionId, question.getId(), "CANDIDATE", "ANSWER", request.content());
         InterviewMessage prompt = lastInterviewerMessage(sessionId, question.getId());
@@ -234,6 +269,9 @@ public class InterviewConversationService {
         if (question == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "题目不存在");
         }
+        if (!"ANSWERING".equals(question.getStatus())) {
+            throw new BusinessException(ErrorCode.CONFLICT, "题目状态已发生变化");
+        }
         InterviewMessage interviewer = messageMapper.selectById(context.interviewerMessageId());
         if (interviewer == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "面试官消息不存在");
@@ -251,14 +289,27 @@ public class InterviewConversationService {
         }
 
         boolean completed = false;
-        if (!"FOLLOW_UP".equals(context.replyType())) {
-            question.setStatus("ANSWERED");
-            question.setAnsweredAt(LocalDateTime.now());
-            questionMapper.updateById(question);
+        if ("FOLLOW_UP".equals(context.replyType())) {
+            int reset = questionMapper.update(null, new LambdaUpdateWrapper<InterviewQuestion>()
+                    .eq(InterviewQuestion::getId, question.getId())
+                    .eq(InterviewQuestion::getStatus, "ANSWERING")
+                    .set(InterviewQuestion::getStatus, "ASKED"));
+            if (reset == 0) {
+                throw new BusinessException(ErrorCode.CONFLICT, "题目状态已发生变化");
+            }
+        } else {
+            int answered = questionMapper.update(null, new LambdaUpdateWrapper<InterviewQuestion>()
+                    .eq(InterviewQuestion::getId, question.getId())
+                    .eq(InterviewQuestion::getStatus, "ANSWERING")
+                    .set(InterviewQuestion::getStatus, "ANSWERED")
+                    .set(InterviewQuestion::getAnsweredAt, LocalDateTime.now()));
+            if (answered == 0) {
+                throw new BusinessException(ErrorCode.CONFLICT, "题目状态已发生变化");
+            }
 
             if (context.nextQuestionId() != null) {
                 InterviewQuestion next = questionMapper.selectById(context.nextQuestionId());
-                if (next == null || !"PENDING".equals(next.getStatus())) {
+                if (next == null) {
                     throw new BusinessException(ErrorCode.CONFLICT, "下一题状态已发生变化");
                 }
                 ask(session, next);
@@ -377,9 +428,17 @@ public class InterviewConversationService {
     }
 
     private void ask(InterviewSession session, InterviewQuestion question) {
+        LocalDateTime askedAt = LocalDateTime.now();
+        int updated = questionMapper.update(null, new LambdaUpdateWrapper<InterviewQuestion>()
+                .eq(InterviewQuestion::getId, question.getId())
+                .eq(InterviewQuestion::getStatus, "PENDING")
+                .set(InterviewQuestion::getStatus, "ASKED")
+                .set(InterviewQuestion::getAskedAt, askedAt));
+        if (updated == 0) {
+            throw new BusinessException(ErrorCode.CONFLICT, "题目状态已发生变化");
+        }
         question.setStatus("ASKED");
-        question.setAskedAt(LocalDateTime.now());
-        questionMapper.updateById(question);
+        question.setAskedAt(askedAt);
         session.setCurrentQuestionId(question.getId());
     }
 

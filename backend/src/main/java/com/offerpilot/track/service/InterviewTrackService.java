@@ -78,9 +78,7 @@ public class InterviewTrackService {
     }
 
     public long countQuestions(Long trackId) {
-        return trackQuestionMapper.selectCount(new LambdaQueryWrapper<TrackQuestion>()
-                .eq(TrackQuestion::getTrackId, trackId)
-                .eq(TrackQuestion::getEnabled, 1));
+        return trackQuestionMapper.countActiveQuestions(trackId);
     }
 
     public List<Long> questionIds(Long trackId) {

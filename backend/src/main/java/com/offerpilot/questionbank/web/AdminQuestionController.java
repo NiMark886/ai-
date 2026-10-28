@@ -5,10 +5,12 @@ import com.offerpilot.questionbank.service.QuestionBankAdminService;
 import com.offerpilot.questionbank.web.dto.PageResult;
 import com.offerpilot.questionbank.web.dto.QuestionBankAdminRequest;
 import com.offerpilot.questionbank.web.dto.QuestionBankAdminView;
+import com.offerpilot.questionbank.web.dto.QuestionStatusRequest;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -51,6 +53,12 @@ public class AdminQuestionController {
     public ApiResponse<QuestionBankAdminView> update(@PathVariable Long id,
                                                      @Valid @RequestBody QuestionBankAdminRequest request) {
         return ApiResponse.ok(adminService.update(id, request));
+    }
+
+    @PatchMapping("/{id}/status")
+    public ApiResponse<QuestionBankAdminView> updateStatus(@PathVariable Long id,
+                                                           @Valid @RequestBody QuestionStatusRequest request) {
+        return ApiResponse.ok(adminService.updateStatus(id, request.status()));
     }
 
     @DeleteMapping("/{id}")

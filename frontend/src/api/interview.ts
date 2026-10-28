@@ -264,20 +264,12 @@ export const adminQuestionApi = {
   create: (data: AdminQuestionRequest) =>
     http.post<never, AdminQuestion>('/admin/questions', data),
 
-  update: (id: number, data: AdminQuestionRequest) =>
-    http.put<never, AdminQuestion>(`/admin/questions/${id}`, data),
-
-  remove: (id: number) => http.delete<never, void>(`/admin/questions/${id}`)
+  setStatus: (id: number, status: 'ACTIVE' | 'INACTIVE') =>
+    http.patch<never, AdminQuestion>(`/admin/questions/${id}/status`, { status })
 }
 
 export const adminTrackApi = {
-  list: () => http.get<never, AdminTrack[]>('/admin/tracks'),
-
-  bind: (trackId: number, questionIds: number[]) =>
-    http.post<never, void>(`/admin/tracks/${trackId}/questions`, { questionIds }),
-
-  unbind: (trackId: number, questionId: number) =>
-    http.delete<never, void>(`/admin/tracks/${trackId}/questions/${questionId}`)
+  list: () => http.get<never, AdminTrack[]>('/admin/tracks')
 }
 
 const ACCESS_KEY = 'offerpilot_access_token'

@@ -68,7 +68,7 @@
 - 当前题库 400 道：Java 后端 309 道、Java 全栈 382 道、Java + AI 327 道、前端 67 道。
 - 主页展示 4 个 ACTIVE 岗位；按岗位方向筛选，卡片显示语言、题目数。
 - 创建面试弹窗把“难度”改为“工作年限”：校招 / 应届、1-3 年、3-5 年，难度随年限递增。
-- 后台题库管理已支持按岗位题库切换、多选所属题库、从当前题库移除。
+- 后台题库管理已支持按岗位题库切换、新增题目和启用/禁用题目；禁用后题目不参与面试检索。
 - 创建面试时按赛道检索题目，并写入 `interview_session.track_id`。
 - 后端 98 个测试通过，前端构建通过。
 - Python、Go 题库按计划后置，等现有题库继续完善后再开发。
@@ -604,6 +604,7 @@ public record JobTemplateView(
 | GET | `/api/admin/questions?trackId=` | 题目分页，支持赛道过滤 |
 | POST | `/api/admin/questions` | 创建题目，可带 `trackIds` |
 | PUT | `/api/admin/questions/{id}` | 更新题目，可带 `trackIds` |
+| PATCH | `/api/admin/questions/{id}/status` | 启用/禁用题目 |
 | DELETE | `/api/admin/questions/{id}` | 软删除题目并清理绑定 |
 
 请求示例：
@@ -787,10 +788,9 @@ export interface JobTemplate {
 - 顶部赛道 tab：`全部 / Java 后端 / 前端 / Java 全栈 / Java + AI`。
 - `activeTrackId` 变化时重新加载第 1 页。
 - 表格增加“所属题库”列，展示题目绑定的赛道。
-- 新建/编辑弹窗增加“所属题库”多选，默认选中当前 tab。
+- 新建弹窗增加“所属题库”多选，默认选中当前 tab。
 - 题目分类默认值根据当前赛道推导，例如 Java 后端 → `Java 基础`，前端 → `JavaScript`。
-- 操作增加“从当前题库移除”，只解绑，不删除题目。
-- 删除题目时提示“会同时从所有题库移除”。
+- 操作只保留“启用/禁用”，不再提供编辑、删除和移出题库；禁用后题目不参与面试检索。
 
 API 变更：
 

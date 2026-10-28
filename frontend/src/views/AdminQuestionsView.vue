@@ -23,7 +23,6 @@ const page = ref(1)
 const size = ref(10)
 const keyword = ref('')
 const dialogVisible = ref(false)
-const editingId = ref<number | null>(null)
 
 const form = reactive<AdminQuestionRequest>({
   category: 'Java 基础',
@@ -91,7 +90,6 @@ function switchTrack(trackId: number | null) {
 }
 
 function openCreate() {
-  editingId.value = null
   Object.assign(form, {
     category: defaultCategory(),
     level: activeTrackId.value
@@ -104,22 +102,6 @@ function openCreate() {
     source: '个人整理',
     status: 'ACTIVE',
     trackIds: activeTrackId.value ? [activeTrackId.value] : []
-  })
-  dialogVisible.value = true
-}
-
-function openEdit(row: AdminQuestion) {
-  editingId.value = row.id
-  Object.assign(form, {
-    category: row.category,
-    level: row.level,
-    tags: row.tags.join(','),
-    difficulty: row.difficulty,
-    question: row.question,
-    referenceAnswer: row.referenceAnswer,
-    source: row.source ?? '',
-    status: row.status,
-    trackIds: row.trackIds ?? []
   })
   dialogVisible.value = true
 }
@@ -137,45 +119,29 @@ async function submit() {
     return
   }
   try {
-    if (editingId.value) {
-      await adminQuestionApi.update(editingId.value, { ...form })
-    } else {
-      await adminQuestionApi.create({ ...form })
-    }
-    ElMessage.success(editingId.value ? '题目已更新' : '题目已创建')
+    await adminQuestionApi.create({ ...form })
+    ElMessage.success('题目已创建')
     dialogVisible.value = false
     await load()
+    await loadTracks()
   } catch {
     // 拦截器已提示
   }
 }
 
-async function remove(row: AdminQuestion) {
+async function toggleStatus(row: AdminQuestion) {
+  const nextStatus = row.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE'
+  const action = nextStatus === 'ACTIVE' ? '启用' : '禁用'
   try {
     await ElMessageBox.confirm(
-      `确定删除「${row.question}」吗？删除后会从所有岗位题库移除。`,
-      '删除题目',
+      `确定${action}「${row.question}」吗？${nextStatus === 'INACTIVE' ? '禁用后该题不会再被面试检索。' : ''}`,
+      `${action}题目`,
       { type: 'warning' }
     )
-    await adminQuestionApi.remove(row.id)
-    ElMessage.success('题目已删除')
+    await adminQuestionApi.setStatus(row.id, nextStatus)
+    ElMessage.success(`题目已${action}`)
     await load()
-  } catch {
-    // 用户取消或接口失败
-  }
-}
-
-async function removeFromTrack(row: AdminQuestion) {
-  if (!activeTrackId.value) return
-  try {
-    await ElMessageBox.confirm(
-      `确定把「${row.question}」从当前题库移除吗？题目本身不会被删除。`,
-      '移出题库',
-      { type: 'warning' }
-    )
-    await adminTrackApi.unbind(activeTrackId.value, row.id)
-    ElMessage.success('已从当前题库移除')
-    await load()
+    await loadTracks()
   } catch {
     // 用户取消或接口失败
   }
@@ -278,22 +244,19 @@ function goHome() {
         <el-table-column label="状态" width="90">
           <template #default="{ row }">
             <el-tag :type="row.status === 'ACTIVE' ? 'success' : 'info'" size="small">
-              {{ row.status === 'ACTIVE' ? '启用' : '停用' }}
+              {{ row.status === 'ACTIVE' ? '启用' : '禁用' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="210">
+        <el-table-column label="操作" width="100">
           <template #default="{ row }">
-            <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
             <el-button
-              v-if="activeTrackId"
               link
-              type="warning"
-              @click="removeFromTrack(row)"
+              :type="row.status === 'ACTIVE' ? 'danger' : 'success'"
+              @click="toggleStatus(row)"
             >
-              移出题库
+              {{ row.status === 'ACTIVE' ? '禁用' : '启用' }}
             </el-button>
-            <el-button link type="danger" @click="remove(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -310,7 +273,7 @@ function goHome() {
       </div>
     </main>
 
-    <el-dialog v-model="dialogVisible" :title="editingId ? '编辑题目' : '新增题目'" width="720px">
+    <el-dialog v-model="dialogVisible" title="新增题目" width="720px">
       <el-form label-position="top">
         <div class="form-grid">
           <el-form-item label="分类">
@@ -329,7 +292,7 @@ function goHome() {
           <el-form-item label="状态">
             <el-radio-group v-model="form.status">
               <el-radio-button value="ACTIVE">启用</el-radio-button>
-              <el-radio-button value="INACTIVE">停用</el-radio-button>
+              <el-radio-button value="INACTIVE">禁用</el-radio-button>
             </el-radio-group>
           </el-form-item>
         </div>

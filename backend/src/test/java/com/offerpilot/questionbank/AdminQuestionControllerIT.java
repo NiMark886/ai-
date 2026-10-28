@@ -18,6 +18,7 @@ import java.util.UUID;
 import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -61,6 +62,20 @@ class AdminQuestionControllerIT {
                         .param("keyword", "负载因子"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(org.hamcrest.Matchers.greaterThan(0)));
+
+        mockMvc.perform(patch("/api/admin/questions/" + id + "/status")
+                        .header(AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("status", "INACTIVE"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("INACTIVE"));
+
+        mockMvc.perform(patch("/api/admin/questions/" + id + "/status")
+                        .header(AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("status", "ACTIVE"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"));
 
         mockMvc.perform(put("/api/admin/questions/" + id)
                         .header(AUTHORIZATION, "Bearer " + adminToken)

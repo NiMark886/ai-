@@ -104,6 +104,18 @@ public class QuestionBankAdminService {
     }
 
     @Transactional
+    public QuestionBankAdminView updateStatus(Long id, String status) {
+        QuestionBank bank = load(id);
+        String normalized = status == null ? "" : status.trim().toUpperCase(Locale.ROOT);
+        if (!"ACTIVE".equals(normalized) && !"INACTIVE".equals(normalized)) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "状态只能是 ACTIVE 或 INACTIVE");
+        }
+        bank.setStatus(normalized);
+        questionBankMapper.updateById(bank);
+        return toView(bank);
+    }
+
+    @Transactional
     public void delete(Long id) {
         load(id);
         trackQuestionMapper.delete(new LambdaQueryWrapper<TrackQuestion>()

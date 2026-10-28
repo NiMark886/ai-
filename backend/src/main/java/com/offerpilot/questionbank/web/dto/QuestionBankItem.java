@@ -8,7 +8,6 @@ import java.util.List;
 public record QuestionBankItem(
         Long id,
         String category,
-        String level,
         List<String> tags,
         int difficulty,
         String question,
@@ -25,7 +24,6 @@ public record QuestionBankItem(
         return new QuestionBankItem(
                 bank.getId(),
                 bank.getCategory(),
-                bank.getLevel(),
                 tags,
                 bank.getDifficulty() == null ? 2 : bank.getDifficulty(),
                 bank.getQuestion(),

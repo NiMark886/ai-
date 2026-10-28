@@ -49,7 +49,6 @@ class AdminQuestionControllerIT {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "category", "Java 基础",
-                                "level", "校招",
                                 "tags", "Java,测试",
                                 "difficulty", 2,
                                 "question", "测试题目：HashMap 的负载因子是多少？",
@@ -87,7 +86,6 @@ class AdminQuestionControllerIT {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "category", "Java 基础",
-                                "level", "校招",
                                 "tags", "Java,测试",
                                 "difficulty", 2,
                                 "question", "更新后的题目：HashMap 负载因子？",
@@ -115,9 +113,6 @@ class AdminQuestionControllerIT {
                         .header(AUTHORIZATION, "Bearer " + adminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.categories").isArray())
-                .andExpect(jsonPath("$.data.levels").isArray())
-                .andExpect(jsonPath("$.data.levels[0]").value("校招"))
-                .andExpect(jsonPath("$.data.levels[1]").value("1-3 年"))
                 .andExpect(jsonPath("$.data.tags").isArray())
                 .andExpect(jsonPath("$.data.sources").isArray());
 
@@ -134,7 +129,6 @@ class AdminQuestionControllerIT {
         MvcResult extracted = mockMvc.perform(multipart("/api/admin/questions/import/extract")
                         .file(file)
                         .param("category", "Java 基础")
-                        .param("level", "1-3 年")
                         .param("difficulty", "2")
                         .param("source", "测试文档")
                         .header(AUTHORIZATION, "Bearer " + adminToken))
@@ -155,7 +149,6 @@ class AdminQuestionControllerIT {
                                 "question", items.get(0).path("question").asText(),
                                 "referenceAnswer", items.get(0).path("referenceAnswer").asText(),
                                 "category", "Java 基础",
-                                "level", "1-3 年",
                                 "difficulty", 2,
                                 "tags", List.of("Java", "测试"),
                                 "source", "测试文档"),
@@ -163,7 +156,6 @@ class AdminQuestionControllerIT {
                                 "question", items.get(1).path("question").asText(),
                                 "referenceAnswer", items.get(1).path("referenceAnswer").asText(),
                                 "category", "Java 并发",
-                                "level", "1-3 年",
                                 "difficulty", 2,
                                 "tags", List.of("Java", "线程池"),
                                 "source", "测试文档")),

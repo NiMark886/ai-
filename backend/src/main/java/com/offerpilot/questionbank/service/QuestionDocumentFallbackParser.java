@@ -162,7 +162,6 @@ public class QuestionDocumentFallbackParser {
     private QuestionBankImportItem toItem(String question, String answer,
                                            QuestionImportDefaults defaults) {
         String category = defaultValue(defaults.category(), "未分类");
-        String level = defaultValue(defaults.level(), "校招");
         int difficulty = defaults.difficulty() == null
                 ? 1 : Math.max(1, Math.min(3, defaults.difficulty()));
         String source = defaultValue(defaults.source(), "文档导入");
@@ -171,7 +170,6 @@ public class QuestionDocumentFallbackParser {
                 truncate(question, MAX_QUESTION_LENGTH),
                 truncate(answer, MAX_ANSWER_LENGTH),
                 category,
-                level,
                 difficulty,
                 tags,
                 source);

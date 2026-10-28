@@ -13,7 +13,7 @@ class QuestionDocumentFallbackParserTest {
 
     private final QuestionDocumentFallbackParser parser = new QuestionDocumentFallbackParser();
     private final QuestionImportDefaults defaults =
-            new QuestionImportDefaults("Java 基础", "1-3 年", 2, "文档导入 · test.txt");
+            new QuestionImportDefaults("Java 基础", 2, "文档导入 · test.txt");
 
     @Test
     void parsesNumberedQuestionsWithAnswersAndMultiLineAnswers() {
@@ -34,7 +34,6 @@ class QuestionDocumentFallbackParserTest {
         assertThat(items.get(1).referenceAnswer()).contains("corePoolSize");
         assertThat(items.get(2).question()).contains("死锁");
         assertThat(items.get(0).category()).isEqualTo("Java 基础");
-        assertThat(items.get(0).level()).isEqualTo("1-3 年");
         assertThat(items.get(0).difficulty()).isEqualTo(2);
         assertThat(items.get(0).tags()).contains("Java 基础", "文档导入");
     }

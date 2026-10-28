@@ -114,7 +114,6 @@ export interface StatsOverview {
 export interface QuestionBankItem {
   id: number
   category: string
-  level: string
   tags: string[]
   difficulty: number
   question: string
@@ -161,7 +160,6 @@ export interface QuotaView {
 export interface AdminQuestion {
   id: number
   category: string
-  level: string
   tags: string[]
   difficulty: number
   question: string
@@ -176,7 +174,6 @@ export interface AdminQuestion {
 
 export interface AdminQuestionRequest {
   category: string
-  level: string
   tags: string
   difficulty: number
   question: string
@@ -188,7 +185,6 @@ export interface AdminQuestionRequest {
 
 export interface QuestionBankOptions {
   categories: string[]
-  levels: string[]
   tags: string[]
   sources: string[]
 }
@@ -197,7 +193,6 @@ export interface QuestionImportItem {
   question: string
   referenceAnswer: string
   category: string
-  level: string
   difficulty: number
   tags: string[]
   source: string
@@ -205,7 +200,6 @@ export interface QuestionImportItem {
 
 export interface QuestionImportDefaults {
   category?: string
-  level?: string
   difficulty?: number
   source?: string
 }
@@ -308,7 +302,6 @@ export const adminQuestionApi = {
     const body = new FormData()
     body.append('file', file)
     if (defaults.category) body.append('category', defaults.category)
-    if (defaults.level) body.append('level', defaults.level)
     if (defaults.difficulty) body.append('difficulty', String(defaults.difficulty))
     if (defaults.source) body.append('source', defaults.source)
     return http.post<never, QuestionDocumentExtract>('/admin/questions/import/extract', body, {

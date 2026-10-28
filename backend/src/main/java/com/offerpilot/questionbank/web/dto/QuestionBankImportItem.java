@@ -13,7 +13,6 @@ public record QuestionBankImportItem(
         @NotBlank @Size(max = 4000) String question,
         @NotBlank @Size(max = 20000) String referenceAnswer,
         @NotBlank @Size(max = 64) String category,
-        @NotBlank @Size(max = 32) String level,
         @NotNull @Min(1) @Max(3) Integer difficulty,
         @NotEmpty List<@NotBlank @Size(max = 50) String> tags,
         @Size(max = 255) String source

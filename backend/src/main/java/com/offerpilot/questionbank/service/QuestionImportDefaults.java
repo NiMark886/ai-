@@ -6,7 +6,6 @@ package com.offerpilot.questionbank.service;
  */
 public record QuestionImportDefaults(
         String category,
-        String level,
         Integer difficulty,
         String source
 ) {

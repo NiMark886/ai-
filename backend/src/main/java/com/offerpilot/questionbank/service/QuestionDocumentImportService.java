@@ -40,7 +40,6 @@ public class QuestionDocumentImportService {
 
     public QuestionDocumentExtractView extract(MultipartFile file,
                                                String category,
-                                               String level,
                                                Integer difficulty,
                                                String source) {
         if (file == null || file.isEmpty()) {
@@ -61,7 +60,7 @@ public class QuestionDocumentImportService {
         String fullText = textExtractor.extract(content, fileName);
         boolean truncated = fullText.length() > MAX_TEXT_CHARS;
         String text = truncated ? fullText.substring(0, MAX_TEXT_CHARS) : fullText;
-        QuestionImportDefaults defaults = defaults(category, level, difficulty, source, fileName);
+        QuestionImportDefaults defaults = defaults(category, difficulty, source, fileName);
 
         boolean aiUsed = false;
         List<QuestionBankImportItem> items = List.of();
@@ -91,12 +90,11 @@ public class QuestionDocumentImportService {
                 normalized);
     }
 
-    private QuestionImportDefaults defaults(String category, String level,
+    private QuestionImportDefaults defaults(String category,
                                             Integer difficulty, String source, String fileName) {
         String safeSource = isBlank(source) ? "文档导入" : source.trim();
         return new QuestionImportDefaults(
                 isBlank(category) ? "未分类" : category.trim(),
-                isBlank(level) ? "校招" : level.trim(),
                 difficulty == null ? 1 : Math.max(1, Math.min(3, difficulty)),
                 truncate(safeSource + " · " + fileName, 255));
     }
@@ -116,7 +114,6 @@ public class QuestionDocumentImportService {
                 continue;
             }
             String category = truncate(firstNonBlank(item.category(), defaults.category(), "未分类"), 64);
-            String level = truncate(firstNonBlank(item.level(), defaults.level(), "校招"), 32);
             int difficulty = item.difficulty() == null
                     ? defaults.difficulty() : Math.max(1, Math.min(3, item.difficulty()));
             List<String> tags = item.tags() == null ? List.of() : item.tags().stream()
@@ -134,7 +131,6 @@ public class QuestionDocumentImportService {
                     truncate(question, 4000),
                     truncate(item.referenceAnswer(), 20000),
                     category,
-                    level,
                     difficulty,
                     tags,
                     source);

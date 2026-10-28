@@ -9,7 +9,6 @@ import java.util.List;
 public record QuestionBankAdminView(
         Long id,
         String category,
-        String level,
         List<String> tags,
         Integer difficulty,
         String question,
@@ -33,7 +32,7 @@ public record QuestionBankAdminView(
                 .filter(value -> !value.isBlank())
                 .toList();
         return new QuestionBankAdminView(
-                bank.getId(), bank.getCategory(), bank.getLevel(), tags,
+                bank.getId(), bank.getCategory(), tags,
                 bank.getDifficulty(), bank.getQuestion(), bank.getReferenceAnswer(),
                 bank.getSource(), bank.getStatus(), trackIds, trackNames,
                 bank.getCreatedAt(), bank.getUpdatedAt());

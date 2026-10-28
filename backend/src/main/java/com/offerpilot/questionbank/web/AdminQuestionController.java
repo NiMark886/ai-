@@ -69,10 +69,9 @@ public class AdminQuestionController {
     public ApiResponse<QuestionDocumentExtractView> extractDocument(
             @RequestPart("file") MultipartFile file,
             @RequestParam(required = false) String category,
-            @RequestParam(required = false) String level,
             @RequestParam(required = false) Integer difficulty,
             @RequestParam(required = false) String source) {
-        return ApiResponse.ok(documentImportService.extract(file, category, level, difficulty, source));
+        return ApiResponse.ok(documentImportService.extract(file, category, difficulty, source));
     }
 
     @PostMapping("/import")

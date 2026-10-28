@@ -36,6 +36,26 @@ const form = reactive<AiProviderRequest>({
 const activeProvider = computed(() => providers.value.find((provider) => provider.active) ?? null)
 const isEditing = computed(() => editingId.value !== null)
 
+const presetGroups = computed(() => {
+  const groups = new Map<string, AiProviderPreset[]>()
+  for (const preset of presets.value) {
+    const label = preset.group || '其他'
+    const options = groups.get(label) ?? []
+    options.push(preset)
+    groups.set(label, options)
+  }
+  return Array.from(groups, ([label, options]) => ({ label, options }))
+})
+
+const modelOptions = computed(() => {
+  const preset = presets.value.find((item) => item.type === form.providerType)
+  const options = [...(preset?.models ?? [])]
+  if (form.model && !options.includes(form.model)) {
+    options.unshift(form.model)
+  }
+  return options
+})
+
 onMounted(async () => {
   if (!auth.user) {
     try {
@@ -101,7 +121,7 @@ function handleTypeChange(type: string) {
   if (type !== 'CUSTOM') {
     form.name = preset.label
     form.baseUrl = preset.baseUrl
-    form.model = preset.model
+    form.model = preset.model || preset.models?.[0] || ''
   } else {
     form.name = form.name || '自定义'
     form.baseUrl = form.baseUrl || ''
@@ -205,8 +225,8 @@ function goHome() {
           <p class="eyebrow">AI PROVIDERS</p>
           <h1>API 设置</h1>
           <p class="subtitle">
-            配置你自己的 MiMo / DeepSeek API，面试、评估和报告会使用当前激活的配置。
-            API Key 加密存储，只显示掩码。
+            配置你自己的大模型 API（DeepSeek、Kimi、智谱、通义千问、OpenAI 等），
+            面试、评估和报告会使用当前激活的配置。API Key 加密存储，只显示掩码。
           </p>
         </div>
         <el-button type="primary" size="large" @click="openCreate">新增配置</el-button>
@@ -286,13 +306,24 @@ function goHome() {
     >
       <el-form label-position="top">
         <el-form-item label="预设">
-          <el-select v-model="form.providerType" style="width: 100%" @change="handleTypeChange">
-            <el-option
-              v-for="preset in presets"
-              :key="preset.type"
-              :label="preset.label"
-              :value="preset.type"
-            />
+          <el-select
+            v-model="form.providerType"
+            filterable
+            style="width: 100%"
+            @change="handleTypeChange"
+          >
+            <el-option-group
+              v-for="group in presetGroups"
+              :key="group.label"
+              :label="group.label"
+            >
+              <el-option
+                v-for="preset in group.options"
+                :key="preset.type"
+                :label="preset.label"
+                :value="preset.type"
+              />
+            </el-option-group>
           </el-select>
         </el-form-item>
 
@@ -301,11 +332,22 @@ function goHome() {
         </el-form-item>
 
         <el-form-item label="Base URL">
-          <el-input v-model="form.baseUrl" placeholder="https://api.deepseek.com" />
+          <el-input v-model="form.baseUrl" placeholder="选择预设后自动填充，可修改" />
         </el-form-item>
 
         <el-form-item label="模型">
-          <el-input v-model="form.model" placeholder="deepseek-chat / mimo-v2.5" />
+          <el-select
+            v-model="form.model"
+            filterable
+            allow-create
+            default-first-option
+            :reserve-keyword="false"
+            placeholder="选择或输入模型 ID"
+            style="width: 100%"
+          >
+            <el-option v-for="model in modelOptions" :key="model" :label="model" :value="model" />
+          </el-select>
+          <p class="field-hint">可从预设模型中选择，也可直接输入厂商提供的模型 ID。</p>
         </el-form-item>
 
         <el-form-item :label="isEditing ? 'API Key（留空保持原 Key）' : 'API Key'">
@@ -313,7 +355,7 @@ function goHome() {
             v-model="form.apiKey"
             type="password"
             show-password
-            :placeholder="isEditing ? '留空表示不修改' : 'sk-...'"
+            :placeholder="isEditing ? '留空表示不修改' : '填写厂商 API Key'"
           />
         </el-form-item>
 
@@ -407,6 +449,13 @@ function goHome() {
   color: #6b7a8c;
   font-size: 14px;
   line-height: 1.7;
+}
+
+.field-hint {
+  margin: 6px 0 0;
+  color: #8a97a8;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .mock-alert {

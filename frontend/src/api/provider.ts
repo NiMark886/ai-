@@ -29,6 +29,8 @@ export interface AiProviderPreset {
   label: string
   baseUrl: string
   model: string
+  models: string[]
+  group: string
 }
 
 export interface AiProviderStatus {

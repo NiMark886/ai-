@@ -172,7 +172,7 @@ python scripts/load_test.py --users 20 --base-url http://localhost:8080
 | GET | `/api/stats/weaknesses` | 薄弱点与推荐题目 |
 | GET | `/api/quota/me` | 当前用户额度（默认不限） |
 | GET | `/api/ai/providers` | 当前用户的 AI Provider 列表 |
-| GET | `/api/ai/providers/presets` | DeepSeek / MiMo / 自定义预设 |
+| GET | `/api/ai/providers/presets` | 主流大模型预设、分组与可选模型列表 |
 | GET | `/api/ai/providers/status` | 真实 AI 开关与默认模型 |
 | POST | `/api/ai/providers` | 新增 AI Provider |
 | PUT | `/api/ai/providers/{id}` | 编辑 AI Provider |
@@ -217,13 +217,36 @@ AI 调用失败会自动回退 Mock 生成器，不会阻塞面试创建。上�
 
 每个用户可以在首页「API 设置」中保存自己的 Provider，面试、评估和报告会使用当前激活的配置：
 
-| 预设 | Base URL | 模型 |
-|---|---|---|
-| DeepSeek | `https://api.deepseek.com` | `deepseek-chat` |
-| 小米 MiMo | `https://api.xiaomimimo.com/v1` | `mimo-v2.5` |
-| MiMo Token Plan | `https://token-plan-cn.xiaomimimo.com/v1` | `mimo-v2.5` |
-| 自定义 | 用户填写 | 用户填写 |
+| 分组 | 预设 | Base URL | 默认模型 |
+|---|---|---|---|
+| 国内官方 | DeepSeek | `https://api.deepseek.com` | `deepseek-chat` |
+| 国内官方 | 小米 MiMo | `https://api.xiaomimimo.com/v1` | `mimo-v2.5` |
+| 国内官方 | 小米 MiMo Token Plan | `https://token-plan-cn.xiaomimimo.com/v1` | `mimo-v2.5` |
+| 国内官方 | Kimi（月之暗面） | `https://api.moonshot.cn/v1` | `kimi-k3` |
+| 国内官方 | 智谱 GLM | `https://open.bigmodel.cn/api/paas/v4` | `glm-5.3` |
+| 国内官方 | 通义千问（阿里云百炼） | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen3.8-max` |
+| 国内官方 | MiniMax | `https://api.minimax.cn/v1` | `MiniMax-M3.1-Flash` |
+| 国内官方 | 阶跃星辰 StepFun | `https://api.stepfun.com/v1` | `step-3.7-flash` |
+| 国内官方 | 火山方舟（豆包） | `https://ark.cn-beijing.volces.com/api/v3` | `doubao-seed-2-1-pro-260915` |
+| 国内官方 | 百度千帆 | `https://qianfan.baidubce.com/v2` | `deepseek-v4-flash` |
+| 国内官方 | 腾讯混元 | `https://tokenhub.tencentmaas.com/v1` | `hy3` |
+| 国内官方 | 腾讯 Token Plan | `https://api.lkeap.cloud.tencent.com/plan/v3` | `tc-code-latest` |
+| 国内官方 | LongCat（美团） | `https://api.longcat.chat/openai/v1` | `LongCat-2.0` |
+| 国内聚合 | 硅基流动 SiliconFlow | `https://api.siliconflow.cn/v1` | `deepseek-ai/DeepSeek-V4-Flash` |
+| 国内聚合 | 魔搭 ModelScope | `https://api-inference.modelscope.cn/v1` | `ZhipuAI/GLM-5.2` |
+| 海外 / 聚合 | OpenAI | `https://api.openai.com/v1` | `gpt-5.4` |
+| 海外 / 聚合 | Anthropic Claude | `https://api.anthropic.com/v1` | `claude-sonnet-5-5` |
+| 海外 / 聚合 | Google Gemini | `https://generativelanguage.googleapis.com/v1beta/openai` | `gemini-3.8-flash` |
+| 海外 / 聚合 | xAI Grok | `https://api.x.ai/v1` | `grok-4.7` |
+| 海外 / 聚合 | OpenRouter | `https://openrouter.ai/api/v1` | `openai/gpt-6.1-sol` |
+| 海外 / 聚合 | NVIDIA NIM | `https://integrate.api.nvidia.com/v1` | `moonshotai/kimi-k2.6` |
+| 海外 / 聚合 | Groq | `https://api.groq.com/openai/v1` | `openai/gpt-oss-120b` |
+| 海外 / 聚合 | Mistral AI | `https://api.mistral.ai/v1` | `mistral-medium-3-5` |
+| 自定义 | 自定义（OpenAI 兼容） | 用户填写 | 用户填写 |
 
+- 模型下拉框包含各厂商常用模型，也支持直接输入新的模型 ID；厂商模型更新时无需改代码。
+- 使用 Coding Plan / Token Plan 专属端点时，以厂商控制台给出的 Base URL 为准，可在预设基础上修改。
+- Anthropic Claude 使用官方 OpenAI SDK 兼容层（`/v1/chat/completions`），Gemini 使用官方 OpenAI 兼容端点；两者均只保证基础对话能力。
 - API Key 使用 AES-GCM 加密存储，接口只返回 `sk-****abcd` 掩码，不会明文回显。
 - 每个用户只能看到和操作自己的配置。
 - 未配置时使用系统默认配置；`APP_AI_ENABLED=false` 时全部使用 Mock，设置页会提示。

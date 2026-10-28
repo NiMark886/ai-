@@ -43,9 +43,24 @@ class AiProviderControllerIT {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.length()").value(0));
 
-        mockMvc.perform(get("/api/ai/providers/presets").header(AUTHORIZATION, "Bearer " + token))
+        MvcResult presetsResult = mockMvc.perform(get("/api/ai/providers/presets")
+                        .header(AUTHORIZATION, "Bearer " + token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.length()").value(4));
+                .andReturn();
+        JsonNode presets = objectMapper.readTree(presetsResult.getResponse().getContentAsString())
+                .get("data");
+        assertThat(presets.size()).isGreaterThanOrEqualTo(20);
+        JsonNode zhipu = null;
+        for (JsonNode preset : presets) {
+            if ("ZHIPU".equals(preset.get("type").asText())) {
+                zhipu = preset;
+            }
+        }
+        assertThat(zhipu).isNotNull();
+        assertThat(zhipu.get("baseUrl").asText()).isEqualTo("https://open.bigmodel.cn/api/paas/v4");
+        assertThat(zhipu.get("model").asText()).isEqualTo("glm-5.3");
+        assertThat(zhipu.get("group").asText()).isEqualTo("国内官方");
+        assertThat(zhipu.get("models").toString()).contains("glm-5.3", "glm-5.3-flash");
 
         mockMvc.perform(get("/api/ai/providers/status").header(AUTHORIZATION, "Bearer " + token))
                 .andExpect(status().isOk())

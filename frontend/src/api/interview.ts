@@ -168,6 +168,8 @@ export interface AdminQuestion {
   referenceAnswer: string
   source: string
   status: string
+  trackIds: number[]
+  trackNames: string[]
   createdAt: string
   updatedAt: string
 }
@@ -181,6 +183,21 @@ export interface AdminQuestionRequest {
   referenceAnswer: string
   source: string
   status: string
+  trackIds?: number[]
+}
+
+export interface AdminTrack {
+  id: number
+  code: string
+  name: string
+  roleFamily: string
+  primaryLanguage: string
+  level: string
+  description: string
+  rubricCode: string
+  status: string
+  sortOrder: number
+  questionCount: number
 }
 
 export interface PageResult<T> {
@@ -239,7 +256,7 @@ export const quotaApi = {
 }
 
 export const adminQuestionApi = {
-  page: (params: { page: number; size: number; keyword?: string }) =>
+  page: (params: { page: number; size: number; keyword?: string; trackId?: number }) =>
     http.get<never, PageResult<AdminQuestion>>('/admin/questions', { params }),
 
   get: (id: number) => http.get<never, AdminQuestion>(`/admin/questions/${id}`),
@@ -251,6 +268,16 @@ export const adminQuestionApi = {
     http.put<never, AdminQuestion>(`/admin/questions/${id}`, data),
 
   remove: (id: number) => http.delete<never, void>(`/admin/questions/${id}`)
+}
+
+export const adminTrackApi = {
+  list: () => http.get<never, AdminTrack[]>('/admin/tracks'),
+
+  bind: (trackId: number, questionIds: number[]) =>
+    http.post<never, void>(`/admin/tracks/${trackId}/questions`, { questionIds }),
+
+  unbind: (trackId: number, questionId: number) =>
+    http.delete<never, void>(`/admin/tracks/${trackId}/questions/${questionId}`)
 }
 
 const ACCESS_KEY = 'offerpilot_access_token'

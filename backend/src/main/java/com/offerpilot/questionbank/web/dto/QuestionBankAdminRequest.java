@@ -5,6 +5,8 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
+import java.util.List;
+
 public record QuestionBankAdminRequest(
         @NotBlank String category,
         @NotBlank String level,
@@ -13,6 +15,7 @@ public record QuestionBankAdminRequest(
         @NotBlank String question,
         @NotBlank String referenceAnswer,
         String source,
-        String status
+        String status,
+        List<Long> trackIds
 ) {
 }

@@ -20,11 +20,13 @@ class JobTemplateControllerIT {
     private MockMvc mockMvc;
 
     @Test
-    void listsFourSeededJobTemplatesWithoutAuth() throws Exception {
+    void listsActiveJobTemplatesWithTrackInfoWithoutAuth() throws Exception {
         mockMvc.perform(get("/api/job-templates"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.length()").value(4))
-                .andExpect(jsonPath("$.data[0].title").isNotEmpty());
+                .andExpect(jsonPath("$.data[0].title").value("Java 后端"))
+                .andExpect(jsonPath("$.data[0].trackCode").isNotEmpty())
+                .andExpect(jsonPath("$.data[0].questionCount").isNumber());
     }
 }

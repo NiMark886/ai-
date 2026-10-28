@@ -6,5 +6,9 @@ import java.util.List;
 
 public interface QuestionBankRetriever {
 
-    List<QuestionBankItem> retrieve(String query, List<String> tags, int limit);
+    default List<QuestionBankItem> retrieve(String query, List<String> tags, int limit) {
+        return retrieve(query, tags, limit, null);
+    }
+
+    List<QuestionBankItem> retrieve(String query, List<String> tags, int limit, Long trackId);
 }

@@ -32,8 +32,9 @@ public class AdminQuestionController {
     public ApiResponse<PageResult<QuestionBankAdminView>> page(
             @RequestParam(defaultValue = "1") long page,
             @RequestParam(defaultValue = "20") long size,
-            @RequestParam(required = false) String keyword) {
-        return ApiResponse.ok(adminService.page(page, size, keyword));
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Long trackId) {
+        return ApiResponse.ok(adminService.page(page, size, keyword, trackId));
     }
 
     @GetMapping("/{id}")

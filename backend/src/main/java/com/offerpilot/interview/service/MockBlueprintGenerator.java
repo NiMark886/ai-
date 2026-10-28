@@ -41,7 +41,8 @@ public class MockBlueprintGenerator implements InterviewBlueprintGenerator {
             aiCount++;
         }
 
-        List<BlueprintQuestion> basic = basicQuestions(category, request.retrievedQuestions());
+        List<BlueprintQuestion> basic = basicQuestions(
+                category, request.retrievedQuestions(), experienceTarget(request.difficulty()));
         List<BlueprintQuestion> project = projectQuestions(request.resumeProfile());
         List<BlueprintQuestion> scenario = scenarioQuestions(category);
         List<BlueprintQuestion> ai = aiQuestions();
@@ -84,6 +85,17 @@ public class MockBlueprintGenerator implements InterviewBlueprintGenerator {
         }
     }
 
+    private int experienceTarget(String experience) {
+        if (experience == null) {
+            return 2;
+        }
+        return switch (experience.toUpperCase(java.util.Locale.ROOT)) {
+            case "CAMPUS", "EASY" -> 1;
+            case "SENIOR", "HARD" -> 3;
+            default -> 2;
+        };
+    }
+
     private List<BlueprintQuestion> take(List<BlueprintQuestion> source, int count) {
         List<BlueprintQuestion> result = new ArrayList<>();
         for (int i = 0; i < count; i++) {
@@ -92,8 +104,9 @@ public class MockBlueprintGenerator implements InterviewBlueprintGenerator {
         return result;
     }
 
-    private List<BlueprintQuestion> basicQuestions(String category, List<QuestionBankItem> retrieved) {
-        List<BlueprintQuestion> result = new ArrayList<>(bankQuestions(retrieved));
+    private List<BlueprintQuestion> basicQuestions(String category, List<QuestionBankItem> retrieved,
+                                                   int targetDifficulty) {
+        List<BlueprintQuestion> result = new ArrayList<>(bankQuestions(retrieved, targetDifficulty));
         if (category.contains("AI")) {
             result.addAll(List.of(
                     question("请说明 RAG 的完整流程，以及每个阶段常见的失败点。", 2,
@@ -145,13 +158,15 @@ public class MockBlueprintGenerator implements InterviewBlueprintGenerator {
         return dedupe(result);
     }
 
-    private List<BlueprintQuestion> bankQuestions(List<QuestionBankItem> retrieved) {
+    private List<BlueprintQuestion> bankQuestions(List<QuestionBankItem> retrieved, int targetDifficulty) {
         if (retrieved == null) {
             return List.of();
         }
         return retrieved.stream()
                 .filter(item -> !"开放题".equals(item.category()))
                 .filter(item -> !item.category().contains("经历"))
+                .sorted(java.util.Comparator.comparingInt(
+                        item -> Math.abs(item.difficulty() - targetDifficulty)))
                 .map(item -> question(item.question(), item.difficulty(),
                         item.tags().stream().limit(3).toList(),
                         List.of(item.referenceAnswer()),

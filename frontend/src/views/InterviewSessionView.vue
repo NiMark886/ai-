@@ -23,6 +23,19 @@ const difficultyLabels: Record<number, string> = {
   3: '困难'
 }
 
+const experienceLabels: Record<string, string> = {
+  CAMPUS: '校招 / 应届',
+  JUNIOR: '1-3 年',
+  SENIOR: '3-5 年',
+  EASY: '校招 / 应届',
+  STANDARD: '1-3 年',
+  HARD: '3-5 年'
+}
+
+function experienceLabel(value: string): string {
+  return experienceLabels[value] ?? '1-3 年'
+}
+
 const groupedQuestions = computed(() => {
   const map = new Map<string, QuestionView[]>()
   for (const question of session.value?.questions ?? []) {
@@ -78,7 +91,7 @@ async function startInterview() {
             <p class="eyebrow">INTERVIEW BLUEPRINT</p>
             <h1>{{ session.jobTitle }}</h1>
             <div class="meta">
-              <span>{{ session.difficulty === 'HARD' ? '挑战' : session.difficulty === 'EASY' ? '简单' : '标准' }}</span>
+              <span>{{ experienceLabel(session.difficulty) }}</span>
               <span>{{ session.durationMinutes }} 分钟</span>
               <span>{{ session.questions.length }} 道题</span>
               <span>{{ session.persona === 'PRESSURE' ? '压力面' : session.persona === 'GENTLE' ? '温和' : '标准' }}</span>

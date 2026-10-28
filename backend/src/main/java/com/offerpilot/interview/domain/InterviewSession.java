@@ -23,6 +23,8 @@ public class InterviewSession {
 
     private Long jobTemplateId;
 
+    private Long trackId;
+
     private Long resumeId;
 
     private String difficulty;

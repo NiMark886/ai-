@@ -490,7 +490,7 @@ CREATE INDEX idx_question_bank_status_category ON question_bank(status, category
 
 **问题**
 
-`KeywordQuestionBankRetriever.java:24-47` 每次查询把全部 ACTIVE 题目加载到内存，按标签和查询词打分。目前 140 题可行，上千题后 CPU/内存/延迟都会成为瓶颈；且无法处理同义表达。
+`KeywordQuestionBankRetriever.java:24-47` 每次查询把全部 ACTIVE 题目加载到内存，按标签和查询词打分。目前 240 题可行，上千题后 CPU/内存/延迟都会成为瓶颈；且无法处理同义表达。
 
 **方案**
 

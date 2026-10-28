@@ -29,6 +29,8 @@ public class JobTemplate {
 
     private String configJson;
 
+    private Long trackId;
+
     private String status;
 
     private Integer sortOrder;

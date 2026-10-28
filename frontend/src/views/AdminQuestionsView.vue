@@ -2,7 +2,13 @@
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { adminQuestionApi, type AdminQuestion, type AdminQuestionRequest } from '@/api/interview'
+import {
+  adminQuestionApi,
+  adminTrackApi,
+  type AdminQuestion,
+  type AdminQuestionRequest,
+  type AdminTrack
+} from '@/api/interview'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
@@ -10,6 +16,8 @@ const router = useRouter()
 
 const loading = ref(false)
 const records = ref<AdminQuestion[]>([])
+const tracks = ref<AdminTrack[]>([])
+const activeTrackId = ref<number | null>(null)
 const total = ref(0)
 const page = ref(1)
 const size = ref(10)
@@ -25,7 +33,8 @@ const form = reactive<AdminQuestionRequest>({
   question: '',
   referenceAnswer: '',
   source: '个人整理',
-  status: 'ACTIVE'
+  status: 'ACTIVE',
+  trackIds: []
 })
 
 const difficultyLabels: Record<number, string> = { 1: '简单', 2: '中等', 3: '困难' }
@@ -44,8 +53,18 @@ onMounted(async () => {
     router.replace('/')
     return
   }
+  await loadTracks()
   await load()
 })
+
+async function loadTracks() {
+  try {
+    const data = await adminTrackApi.list()
+    tracks.value = data.filter((track) => track.status !== 'INACTIVE')
+  } catch {
+    // 拦截器已提示
+  }
+}
 
 async function load() {
   loading.value = true
@@ -53,7 +72,8 @@ async function load() {
     const data = await adminQuestionApi.page({
       page: page.value,
       size: size.value,
-      keyword: keyword.value || undefined
+      keyword: keyword.value || undefined,
+      trackId: activeTrackId.value ?? undefined
     })
     records.value = data.records
     total.value = data.total
@@ -64,17 +84,26 @@ async function load() {
   }
 }
 
+function switchTrack(trackId: number | null) {
+  activeTrackId.value = trackId
+  page.value = 1
+  load()
+}
+
 function openCreate() {
   editingId.value = null
   Object.assign(form, {
-    category: 'Java 基础',
-    level: '校招',
+    category: defaultCategory(),
+    level: activeTrackId.value
+      ? tracks.value.find((track) => track.id === activeTrackId.value)?.level ?? '校招'
+      : '校招',
     tags: '',
     difficulty: 1,
     question: '',
     referenceAnswer: '',
     source: '个人整理',
-    status: 'ACTIVE'
+    status: 'ACTIVE',
+    trackIds: activeTrackId.value ? [activeTrackId.value] : []
   })
   dialogVisible.value = true
 }
@@ -89,9 +118,17 @@ function openEdit(row: AdminQuestion) {
     question: row.question,
     referenceAnswer: row.referenceAnswer,
     source: row.source ?? '',
-    status: row.status
+    status: row.status,
+    trackIds: row.trackIds ?? []
   })
   dialogVisible.value = true
+}
+
+function defaultCategory(): string {
+  const track = tracks.value.find((item) => item.id === activeTrackId.value)
+  if (track?.primaryLanguage === 'JAVA') return 'Java 基础'
+  if (track?.primaryLanguage === 'JS_TS') return 'JavaScript'
+  return '基础'
 }
 
 async function submit() {
@@ -115,9 +152,29 @@ async function submit() {
 
 async function remove(row: AdminQuestion) {
   try {
-    await ElMessageBox.confirm(`确定删除「${row.question}」吗？`, '删除题目', { type: 'warning' })
+    await ElMessageBox.confirm(
+      `确定删除「${row.question}」吗？删除后会从所有岗位题库移除。`,
+      '删除题目',
+      { type: 'warning' }
+    )
     await adminQuestionApi.remove(row.id)
     ElMessage.success('题目已删除')
+    await load()
+  } catch {
+    // 用户取消或接口失败
+  }
+}
+
+async function removeFromTrack(row: AdminQuestion) {
+  if (!activeTrackId.value) return
+  try {
+    await ElMessageBox.confirm(
+      `确定把「${row.question}」从当前题库移除吗？题目本身不会被删除。`,
+      '移出题库',
+      { type: 'warning' }
+    )
+    await adminTrackApi.unbind(activeTrackId.value, row.id)
+    ElMessage.success('已从当前题库移除')
     await load()
   } catch {
     // 用户取消或接口失败
@@ -157,6 +214,28 @@ function goHome() {
         <el-button type="primary" size="large" @click="openCreate">新增题目</el-button>
       </section>
 
+      <section class="track-tabs">
+        <button
+          type="button"
+          class="track-tab"
+          :class="{ active: activeTrackId === null }"
+          @click="switchTrack(null)"
+        >
+          全部题目
+        </button>
+        <button
+          v-for="track in tracks"
+          :key="track.id"
+          type="button"
+          class="track-tab"
+          :class="{ active: activeTrackId === track.id }"
+          @click="switchTrack(track.id)"
+        >
+          {{ track.name }}
+          <small>{{ track.questionCount }}</small>
+        </button>
+      </section>
+
       <section class="toolbar">
         <el-input
           v-model="keyword"
@@ -171,8 +250,22 @@ function goHome() {
       <el-table v-loading="loading" :data="records" style="width: 100%">
         <el-table-column prop="id" label="ID" width="70" />
         <el-table-column prop="category" label="分类" width="130" />
-        <el-table-column prop="question" label="题目" min-width="280" show-overflow-tooltip />
-        <el-table-column label="标签" min-width="180">
+        <el-table-column prop="question" label="题目" min-width="260" show-overflow-tooltip />
+        <el-table-column label="所属题库" min-width="180">
+          <template #default="{ row }">
+            <el-tag
+              v-for="name in row.trackNames"
+              :key="name"
+              size="small"
+              effect="plain"
+              style="margin-right: 4px"
+            >
+              {{ name }}
+            </el-tag>
+            <span v-if="!row.trackNames?.length" class="muted">未绑定</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="标签" min-width="160">
           <template #default="{ row }">
             <el-tag v-for="tag in row.tags" :key="tag" size="small" effect="plain" style="margin-right: 4px">
               {{ tag }}
@@ -189,9 +282,17 @@ function goHome() {
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="140">
+        <el-table-column label="操作" width="210">
           <template #default="{ row }">
             <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
+            <el-button
+              v-if="activeTrackId"
+              link
+              type="warning"
+              @click="removeFromTrack(row)"
+            >
+              移出题库
+            </el-button>
             <el-button link type="danger" @click="remove(row)">删除</el-button>
           </template>
         </el-table-column>
@@ -232,6 +333,21 @@ function goHome() {
             </el-radio-group>
           </el-form-item>
         </div>
+        <el-form-item label="所属题库">
+          <el-select
+            v-model="form.trackIds"
+            multiple
+            placeholder="选择该题目所属的岗位题库"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="track in tracks"
+              :key="track.id"
+              :label="`${track.name} · ${track.level}`"
+              :value="track.id"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item label="标签（逗号分隔）">
           <el-input v-model="form.tags" placeholder="Java,HashMap,集合" />
         </el-form-item>
@@ -323,10 +439,50 @@ function goHome() {
   font-size: 14px;
 }
 
+.track-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.track-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid #dbe6f2;
+  background: #fff;
+  color: #5b6b7f;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.track-tab small {
+  color: #a0aab6;
+  font-size: 11px;
+}
+
+.track-tab.active {
+  border-color: #1f4e79;
+  background: #1f4e79;
+  color: #fff;
+}
+
+.track-tab.active small {
+  color: rgba(255, 255, 255, 0.75);
+}
+
 .toolbar {
   display: flex;
   gap: 12px;
   margin-bottom: 16px;
+}
+
+.muted {
+  color: #a0aab6;
+  font-size: 12px;
 }
 
 .pagination {

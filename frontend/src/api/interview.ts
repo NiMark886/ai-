@@ -186,6 +186,44 @@ export interface AdminQuestionRequest {
   trackIds?: number[]
 }
 
+export interface QuestionBankOptions {
+  categories: string[]
+  levels: string[]
+  tags: string[]
+  sources: string[]
+}
+
+export interface QuestionImportItem {
+  question: string
+  referenceAnswer: string
+  category: string
+  level: string
+  difficulty: number
+  tags: string[]
+  source: string
+}
+
+export interface QuestionImportDefaults {
+  category?: string
+  level?: string
+  difficulty?: number
+  source?: string
+}
+
+export interface QuestionDocumentExtract {
+  fileName: string
+  textLength: number
+  truncated: boolean
+  aiUsed: boolean
+  total: number
+  items: QuestionImportItem[]
+}
+
+export interface QuestionImportResult {
+  imported: number
+  ids: number[]
+}
+
 export interface AdminTrack {
   id: number
   code: string
@@ -263,6 +301,23 @@ export const adminQuestionApi = {
 
   create: (data: AdminQuestionRequest) =>
     http.post<never, AdminQuestion>('/admin/questions', data),
+
+  options: () => http.get<never, QuestionBankOptions>('/admin/questions/options'),
+
+  extractDocument: (file: File, defaults: QuestionImportDefaults) => {
+    const body = new FormData()
+    body.append('file', file)
+    if (defaults.category) body.append('category', defaults.category)
+    if (defaults.level) body.append('level', defaults.level)
+    if (defaults.difficulty) body.append('difficulty', String(defaults.difficulty))
+    if (defaults.source) body.append('source', defaults.source)
+    return http.post<never, QuestionDocumentExtract>('/admin/questions/import/extract', body, {
+      timeout: 120000
+    })
+  },
+
+  importQuestions: (data: { questions: QuestionImportItem[]; trackIds?: number[] }) =>
+    http.post<never, QuestionImportResult>('/admin/questions/import', data),
 
   setStatus: (id: number, status: 'ACTIVE' | 'INACTIVE') =>
     http.patch<never, AdminQuestion>(`/admin/questions/${id}/status`, { status })

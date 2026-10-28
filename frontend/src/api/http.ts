@@ -130,7 +130,7 @@ http.interceptors.response.use(
     ElMessage.error(
       message ||
         (isTimeout
-          ? '请求超时，AI 可能仍在后台生成，请稍后刷新面试列表'
+          ? '请求超时，AI 任务可能仍在后台处理，请稍后重试'
           : '网络异常，请稍后重试')
     )
     return Promise.reject(error)

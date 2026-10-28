@@ -180,7 +180,10 @@ python scripts/load_test.py --users 20 --base-url http://localhost:8080
 | POST | `/api/ai/providers/{id}/activate` | 设为当前 Provider |
 | POST | `/api/ai/providers/{id}/test` | 测试连接 |
 | GET | `/api/admin/questions` | 管理员题库分页，支持 `trackId` 筛选 |
+| GET | `/api/admin/questions/options` | 分类、适用级别、标签、来源下拉选项 |
 | POST | `/api/admin/questions` | 管理员新增题目，可带 `trackIds` |
+| POST | `/api/admin/questions/import/extract` | 上传 PDF/DOCX/TXT/Markdown 提取题目（AI + 规则兜底） |
+| POST | `/api/admin/questions/import` | 批量导入勾选后的题目 |
 | PUT | `/api/admin/questions/{id}` | 管理员编辑题目，可带 `trackIds` |
 | PATCH | `/api/admin/questions/{id}/status` | 管理员启用/禁用题目 |
 | DELETE | `/api/admin/questions/{id}` | 管理员删除题目 |
@@ -261,6 +264,8 @@ AI 调用失败会自动回退 Mock 生成器，不会阻塞面试创建。上�
 - 工作年限不再写进岗位名称，而是在创建面试弹窗选择：校招 / 应届、1-3 年、3-5 年，年限越高题目难度和追问深度越高。
 - 创建面试时按 `job_template.track_id` 只检索该岗位题库，避免跨岗位串题。
 - 后台题库管理支持按岗位题库切换、新增题目和启用/禁用题目；禁用后该题不再参与面试检索，岗位卡片的题目数也会同步减少。
+- 新增题目时，分类、适用级别、标签、来源都是可搜索下拉框；已有值可直接选择，也可以输入新值并保存为后续可选选项。
+- 支持从 PDF、DOCX、TXT、Markdown 文档导入题目：系统优先用当前用户激活的 AI Provider 提取题目和答案，失败时回退到编号题/问答规则解析；识别结果会先展示在预览表中，可勾选、全选、逐题修改或移除，确认后再批量写入题库。扫描版 PDF 需要先 OCR。
 - 成长页根据历史回答的缺失要点和题目标签聚合薄弱点，推荐题库题目；推荐题目可展开查看参考答案。
 - 当前为关键词检索（RAG-lite），pgvector/bge-m3 向量检索留到部署阶段。
 

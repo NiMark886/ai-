@@ -92,6 +92,19 @@ class TrackQuestionRetrieverIT {
     }
 
     @Test
+    void retrievesNewHeimaQuestionsForJavaBackendTrack() {
+        InterviewTrack track = track("java-backend-campus");
+        Set<Long> boundIds = boundQuestionIds(track.getId());
+
+        List<QuestionBankItem> results = retriever.retrieve(
+                "TCP 三次握手 四次挥手", List.of("TCP", "三次握手"), 5, track.getId());
+
+        assertThat(results).isNotEmpty();
+        assertThat(results).allSatisfy(item -> assertThat(boundIds).contains(item.id()));
+        assertThat(results).anyMatch(item -> item.question().contains("三次握手"));
+    }
+
+    @Test
     void legacyRetrievalStillWorksWithoutTrack() {
         List<QuestionBankItem> results = retriever.retrieve(
                 "Java 集合 HashMap", List.of("Java", "集合"), 5);

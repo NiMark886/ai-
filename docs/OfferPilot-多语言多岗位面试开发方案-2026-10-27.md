@@ -5,7 +5,7 @@
 > 分支：`feat/multi-language-interview`  
 > 基线：`main` @ `a8a05d9`  
 > 状态：设计稿；Java 与前端岗位拆分已实施，Python/Go 暂缓  
-> 当前实施范围（2026-10-28）：主页展示 Java 后端、Java 全栈、Java + AI、前端；前端题库已补充到 67 道并开放；旧 1-3 年和 Spring Cloud 模板转为 INACTIVE；工作年限在创建面试弹窗选择  
+> 当前实施范围（2026-10-28）：主页展示 Java 后端、Java 全栈、Java + AI、前端；前端题库 67 道；新增 100 道黑马/传智 Java 面试题，题库达到 400 道；旧 1-3 年和 Spring Cloud 模板转为 INACTIVE；工作年限在创建面试弹窗选择
 > 目标：把单一 Java 面试扩展为可按岗位选择的多语言、多岗位面试平台；首版先做 Java 后端、前端、Java 全栈  
 > 说明：下文部分章节保留了最初的多语言设计稿，岗位命名以本节和第 0.5 节为准
 
@@ -64,12 +64,13 @@
 - `V16__simplify_job_names_and_experience.sql`：岗位名称收敛为 Java 后端 / Java 全栈 / Java + AI；旧 1-3 年和 Spring Cloud 模板转为 INACTIVE；新增前端 DRAFT 题库。
 - `V17__java_question_bank_expansion_20261028.sql`：新增 100 道 Java 后端/全栈/AI 题。
 - `V18__frontend_question_bank_expansion.sql`：新增 60 道前端题，前端题库达到 67 道并开放。
-- 当前题库 300 道：Java 后端 209 道、Java 全栈 282 道、Java + AI 227 道、前端 67 道。
+- `V19__java_interview_question_bank_20261028.sql`：新增 100 道黑马/传智 Java 面试题，覆盖 Java IO/网络、基础算法、Web 基础、MySQL、Spring、MyBatis、Spring Cloud、Redis、MQ、Nginx、ES、Docker、Git、Maven。
+- 当前题库 400 道：Java 后端 309 道、Java 全栈 382 道、Java + AI 327 道、前端 67 道。
 - 主页展示 4 个 ACTIVE 岗位；按岗位方向筛选，卡片显示语言、题目数。
 - 创建面试弹窗把“难度”改为“工作年限”：校招 / 应届、1-3 年、3-5 年，难度随年限递增。
 - 后台题库管理已支持按岗位题库切换、多选所属题库、从当前题库移除。
 - 创建面试时按赛道检索题目，并写入 `interview_session.track_id`。
-- 后端 96 个测试通过，前端构建通过。
+- 后端 98 个测试通过，前端构建通过。
 - Python、Go 题库按计划后置，等现有题库继续完善后再开发。
 
 ---
@@ -85,15 +86,16 @@
   - Java + AI
   - 前端
   - Java 后端旧 1-3 年、Spring Cloud 微服务（INACTIVE，历史兼容）
-- 题库 300 道 ACTIVE 题，其中 Java 相关 105 道，前端 67 道：
-  - Java 基础 32
+- 题库 400 道 ACTIVE 题，其中 Java 基础/集合/并发/JVM 共 117 道，前端 67 道：
+  - Java 基础 43
   - Java 集合 22
-  - Java 并发 32
+  - Java 并发 33
   - JVM 19
-- 其他分类：MySQL/MyBatis 20、Spring Boot 和 Spring 20、Redis 和缓存 16、微服务与消息队列 10、项目场景 6、项目经历追问 10、JWT 和登录认证 8、实习经历追问 8、开放题 6、Java + AI 18、Java 全栈 6。
+- 新增分类：基础算法 17、Web 基础 7、常用组件 19。
+- 其他分类：MySQL/MyBatis 30、Spring Boot 和 Spring 30、Redis 和缓存 20、微服务与消息队列 31、项目场景 6、项目经历追问 10、JWT 和登录认证 8、实习经历追问 8、开放题 6、Java + AI 18、Java 全栈 6。
 - 前端分类：JavaScript 10、TypeScript 4、CSS 6、浏览器与网络 8、Vue 8、React 8、前端工程化 6、前端性能 4、前端安全 3、前端项目场景 3、原有 Vue 和前端基础 7。
 - 现有 AI 能力：蓝图生成、流式追问、回答评估、异步报告、每用户 BYOK。
-- 现有测试：后端 96 个测试通过。
+- 现有测试：后端 98 个测试通过。
 
 ### 1.2 当前限制
 

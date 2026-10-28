@@ -33,8 +33,6 @@ import java.util.Objects;
 @Service
 public class QuestionBankAdminService {
 
-    private static final List<String> LEVEL_ORDER = List.of("校招", "应届", "1-3 年", "3-5 年");
-
     private final QuestionBankMapper questionBankMapper;
     private final TrackQuestionMapper trackQuestionMapper;
     private final InterviewTrackMapper trackMapper;
@@ -90,12 +88,10 @@ public class QuestionBankAdminService {
 
     public QuestionBankOptionsView options() {
         List<String> categories = distinctValues("category");
-        List<String> levels = distinctValues("level");
         List<String> tags = distinctTags();
         List<String> sources = distinctValues("source");
         return new QuestionBankOptionsView(
                 categories.isEmpty() ? List.of("Java 基础", "前端基础", "通用") : categories,
-                levels.isEmpty() ? List.of("校招", "1-3 年", "3-5 年") : orderLevels(levels),
                 tags,
                 sources.isEmpty() ? List.of("个人整理", "文档导入") : sources);
     }
@@ -109,7 +105,7 @@ public class QuestionBankAdminService {
         for (QuestionBankImportItem item : request.questions()) {
             QuestionBank bank = new QuestionBank();
             bank.setCategory(truncate(item.category().trim(), 64));
-            bank.setLevel(truncate(item.level().trim(), 32));
+            bank.setLevel("通用");
             bank.setTags(normalizeTags(item.tags()));
             bank.setDifficulty(Math.max(1, Math.min(3, item.difficulty())));
             bank.setQuestion(item.question().trim());
@@ -126,6 +122,7 @@ public class QuestionBankAdminService {
     @Transactional
     public QuestionBankAdminView create(QuestionBankAdminRequest request) {
         QuestionBank bank = new QuestionBank();
+        bank.setLevel("通用");
         apply(bank, request);
         questionBankMapper.insert(bank);
         if (request.trackIds() != null) {
@@ -265,15 +262,6 @@ public class QuestionBankAdminService {
                 .toList();
     }
 
-    private List<String> orderLevels(List<String> levels) {
-        List<String> ordered = new ArrayList<>(levels);
-        ordered.sort(Comparator.comparingInt(level -> {
-            int index = LEVEL_ORDER.indexOf(level);
-            return index < 0 ? Integer.MAX_VALUE : index;
-        }));
-        return ordered;
-    }
-
     private List<String> distinctTags() {
         List<Object> rows = questionBankMapper.selectObjs(new QueryWrapper<QuestionBank>()
                 .select("tags")
@@ -344,7 +332,6 @@ public class QuestionBankAdminService {
 
     private void apply(QuestionBank bank, QuestionBankAdminRequest request) {
         bank.setCategory(request.category().trim());
-        bank.setLevel(request.level().trim());
         bank.setTags(normalizeTags(request.tags()));
         bank.setDifficulty(request.difficulty());
         bank.setQuestion(request.question().trim());

@@ -15,7 +15,7 @@ class QuestionDocumentJsonParserTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final QuestionDocumentJsonParser parser = new QuestionDocumentJsonParser(objectMapper);
     private final QuestionImportDefaults defaults =
-            new QuestionImportDefaults("Java 基础", "校招", 1, "文档导入 · questions.pdf");
+            new QuestionImportDefaults("Java 基础", 1, "文档导入 · questions.pdf");
 
     @Test
     void parsesCodeFencedJsonAndNormalizesFields() {
@@ -44,7 +44,6 @@ class QuestionDocumentJsonParserTest {
         assertThat(item.question()).isEqualTo("HashMap 为什么查询快？");
         assertThat(item.referenceAnswer()).contains("哈希");
         assertThat(item.category()).isEqualTo("Java 集合");
-        assertThat(item.level()).isEqualTo("校招");
         assertThat(item.difficulty()).isEqualTo(2);
         assertThat(item.tags()).contains("Java", "集合");
         assertThat(item.source()).isEqualTo("文档导入 · questions.pdf");
@@ -60,7 +59,6 @@ class QuestionDocumentJsonParserTest {
 
         assertThat(items).hasSize(1);
         assertThat(items.get(0).category()).isEqualTo("Java 基础");
-        assertThat(items.get(0).level()).isEqualTo("校招");
         assertThat(items.get(0).difficulty()).isEqualTo(1);
         assertThat(items.get(0).tags()).contains("Java 基础", "文档导入");
     }

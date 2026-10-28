@@ -59,9 +59,9 @@ class MockBlueprintGeneratorTest {
                 "某大学本科", "3 年 Java 后端经验");
 
         List<QuestionBankItem> retrieved = List.of(
-                new QuestionBankItem(1L, "Java 基础", "校招", List.of("Java"), 1,
+                new QuestionBankItem(1L, "Java 基础", List.of("Java"), 1,
                         "基础题", "基础答案", "测试"),
-                new QuestionBankItem(2L, "Java 并发", "1-3 年", List.of("Java"), 3,
+                new QuestionBankItem(2L, "Java 并发", List.of("Java"), 3,
                         "进阶题", "进阶答案", "测试"));
 
         InterviewBlueprint campus = generator.generate(new BlueprintRequest(

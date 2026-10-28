@@ -9,7 +9,6 @@ import java.util.List;
 
 public record QuestionBankAdminRequest(
         @NotBlank String category,
-        @NotBlank String level,
         @NotBlank String tags,
         @NotNull @Min(1) @Max(3) Integer difficulty,
         @NotBlank String question,

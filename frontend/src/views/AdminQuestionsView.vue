@@ -37,7 +37,6 @@ const formTags = ref<string[]>([])
 
 const questionOptions = reactive<QuestionBankOptions>({
   categories: [],
-  levels: [],
   tags: [],
   sources: []
 })
@@ -53,7 +52,6 @@ const editingRow = ref<ImportRow | null>(null)
 
 const importDefaults = reactive<QuestionImportDefaults>({
   category: 'Java 基础',
-  level: '校招',
   difficulty: 1,
   source: '文档导入'
 })
@@ -62,7 +60,6 @@ const rowForm = reactive<QuestionImportItem>({
   question: '',
   referenceAnswer: '',
   category: 'Java 基础',
-  level: '校招',
   difficulty: 1,
   tags: [],
   source: '文档导入'
@@ -70,7 +67,6 @@ const rowForm = reactive<QuestionImportItem>({
 
 const form = reactive<AdminQuestionRequest>({
   category: 'Java 基础',
-  level: '校招',
   tags: '',
   difficulty: 1,
   question: '',
@@ -100,7 +96,6 @@ function withCurrent(options: string[], current?: string): string[] {
 }
 
 const categoryChoices = computed(() => withCurrent(questionOptions.categories, form.category))
-const levelChoices = computed(() => withCurrent(questionOptions.levels, form.level))
 const sourceChoices = computed(() => withCurrent(questionOptions.sources, form.source))
 const formTagChoices = computed(() =>
   Array.from(new Set([...formTags.value, ...questionOptions.tags]))
@@ -108,12 +103,10 @@ const formTagChoices = computed(() =>
 const importCategoryChoices = computed(() =>
   withCurrent(questionOptions.categories, importDefaults.category)
 )
-const importLevelChoices = computed(() => withCurrent(questionOptions.levels, importDefaults.level))
 const importSourceChoices = computed(() =>
   withCurrent(questionOptions.sources, importDefaults.source)
 )
 const rowCategoryChoices = computed(() => withCurrent(questionOptions.categories, rowForm.category))
-const rowLevelChoices = computed(() => withCurrent(questionOptions.levels, rowForm.level))
 const rowSourceChoices = computed(() => withCurrent(questionOptions.sources, rowForm.source))
 const rowTagChoices = computed(() =>
   Array.from(new Set([...rowForm.tags, ...questionOptions.tags]))
@@ -182,7 +175,6 @@ function openCreate() {
   formTags.value = []
   Object.assign(form, {
     category: defaultCategory(),
-    level: '校招',
     tags: '',
     difficulty: 1,
     question: '',
@@ -202,8 +194,8 @@ function defaultCategory(): string {
 }
 
 async function submit() {
-  if (!form.category.trim() || !form.level.trim()) {
-    ElMessage.warning('请选择或新建分类和适用级别')
+  if (!form.category.trim()) {
+    ElMessage.warning('请选择或新建分类')
     return
   }
   const tags = formTags.value.map((tag) => tag.trim()).filter(Boolean)
@@ -215,7 +207,6 @@ async function submit() {
     await adminQuestionApi.create({
       ...form,
       category: form.category.trim(),
-      level: form.level.trim(),
       source: form.source.trim() || '个人整理',
       tags: tags.join(',')
     })
@@ -232,7 +223,6 @@ function openImport() {
   importRows.value = []
   importTrackIds.value = activeTrackId.value ? [activeTrackId.value] : []
   importDefaults.category = defaultCategory()
-  importDefaults.level = '校招'
   importDefaults.difficulty = 1
   importDefaults.source = '文档导入'
   importVisible.value = true
@@ -279,7 +269,6 @@ function openRowEditor(row: ImportRow) {
     question: row.question,
     referenceAnswer: row.referenceAnswer,
     category: row.category,
-    level: row.level,
     difficulty: row.difficulty,
     tags: [...row.tags],
     source: row.source
@@ -292,8 +281,8 @@ function saveRowEdit() {
     return
   }
   const tags = rowForm.tags.map((tag) => tag.trim()).filter(Boolean)
-  if (!rowForm.question.trim() || !rowForm.category.trim() || !rowForm.level.trim()) {
-    ElMessage.warning('题目、分类和适用级别不能为空')
+  if (!rowForm.question.trim() || !rowForm.category.trim()) {
+    ElMessage.warning('题目和分类不能为空')
     return
   }
   if (tags.length === 0) {
@@ -304,7 +293,6 @@ function saveRowEdit() {
     question: rowForm.question.trim(),
     referenceAnswer: rowForm.referenceAnswer.trim(),
     category: rowForm.category.trim(),
-    level: rowForm.level.trim(),
     difficulty: rowForm.difficulty,
     tags,
     source: rowForm.source.trim() || '文档导入'
@@ -332,7 +320,6 @@ async function submitImport() {
       !row.question.trim() ||
       !row.referenceAnswer.trim() ||
       !row.category.trim() ||
-      !row.level.trim() ||
       !row.tags.some((tag) => tag.trim())
   )
   if (invalid >= 0) {
@@ -357,7 +344,6 @@ async function submitImport() {
       question: row.question.trim(),
       referenceAnswer: row.referenceAnswer.trim(),
       category: row.category.trim(),
-      level: row.level.trim(),
       difficulty: row.difficulty,
       tags: row.tags.map((tag) => tag.trim()).filter(Boolean),
       source: row.source.trim() || '文档导入'
@@ -538,18 +524,6 @@ function goHome() {
               <el-option v-for="category in categoryChoices" :key="category" :label="category" :value="category" />
             </el-select>
           </el-form-item>
-          <el-form-item label="适用级别">
-            <el-select
-              v-model="form.level"
-              filterable
-              allow-create
-              default-first-option
-              placeholder="选择或新建级别"
-              style="width: 100%"
-            >
-              <el-option v-for="level in levelChoices" :key="level" :label="level" :value="level" />
-            </el-select>
-          </el-form-item>
           <el-form-item label="难度">
             <el-radio-group v-model="form.difficulty">
               <el-radio-button :value="1">简单</el-radio-button>
@@ -648,23 +622,6 @@ function goHome() {
                   :key="category"
                   :label="category"
                   :value="category"
-                />
-              </el-select>
-            </el-form-item>
-            <el-form-item label="默认级别">
-              <el-select
-                v-model="importDefaults.level"
-                filterable
-                allow-create
-                default-first-option
-                placeholder="选择或新建级别"
-                style="width: 100%"
-              >
-                <el-option
-                  v-for="level in importLevelChoices"
-                  :key="level"
-                  :label="level"
-                  :value="level"
                 />
               </el-select>
             </el-form-item>
@@ -785,7 +742,6 @@ function goHome() {
               </template>
             </el-table-column>
             <el-table-column prop="category" label="分类" width="130" show-overflow-tooltip />
-            <el-table-column prop="level" label="级别" width="100" />
             <el-table-column label="难度" width="78">
               <template #default="{ row }">
                 {{ difficultyLabels[row.difficulty] || row.difficulty }}
@@ -863,17 +819,6 @@ function goHome() {
                 :label="category"
                 :value="category"
               />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="适用级别">
-            <el-select
-              v-model="rowForm.level"
-              filterable
-              allow-create
-              default-first-option
-              style="width: 100%"
-            >
-              <el-option v-for="level in rowLevelChoices" :key="level" :label="level" :value="level" />
             </el-select>
           </el-form-item>
           <el-form-item label="难度">

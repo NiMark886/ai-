@@ -9,7 +9,6 @@ import java.util.List;
  */
 public record QuestionBankOptionsView(
         List<String> categories,
-        List<String> levels,
         List<String> tags,
         List<String> sources
 ) {

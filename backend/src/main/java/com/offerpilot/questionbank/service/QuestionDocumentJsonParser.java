@@ -129,7 +129,6 @@ public class QuestionDocumentJsonParser {
         String answer = text(node,
                 "referenceAnswer", "reference_answer", "answer", "答", "答案", "参考答案");
         String category = firstNonBlank(text(node, "category", "categoryName", "分类"), defaults.category(), "未分类");
-        String level = firstNonBlank(text(node, "level", "experienceLevel", "适用级别", "级别"), defaults.level(), "校招");
         int difficulty = difficulty(node);
         if (difficulty == 0) {
             difficulty = defaults.difficulty() == null ? 1 : clamp(defaults.difficulty());
@@ -143,7 +142,6 @@ public class QuestionDocumentJsonParser {
                 truncate(question, 4000),
                 truncate(answer, 20000),
                 truncate(category, 64),
-                truncate(level, 32),
                 difficulty,
                 tags.stream().distinct().limit(MAX_TAGS).toList(),
                 truncate(source, 255));

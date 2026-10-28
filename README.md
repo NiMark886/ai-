@@ -180,7 +180,7 @@ python scripts/load_test.py --users 20 --base-url http://localhost:8080
 | POST | `/api/ai/providers/{id}/activate` | 设为当前 Provider |
 | POST | `/api/ai/providers/{id}/test` | 测试连接 |
 | GET | `/api/admin/questions` | 管理员题库分页，支持 `trackId` 筛选 |
-| GET | `/api/admin/questions/options` | 分类、适用级别、标签、来源下拉选项 |
+| GET | `/api/admin/questions/options` | 分类、标签、来源下拉选项 |
 | POST | `/api/admin/questions` | 管理员新增题目，可带 `trackIds` |
 | POST | `/api/admin/questions/import/extract` | 上传 PDF/DOCX/TXT/Markdown 提取题目（AI + 规则兜底） |
 | POST | `/api/admin/questions/import` | 批量导入勾选后的题目 |
@@ -261,10 +261,10 @@ AI 调用失败会自动回退 Mock 生成器，不会阻塞面试创建。上�
 - `question_bank` 表内置 400 道面试题（含参考答案、分类、标签），其中 Java 基础、集合、并发、JVM 共 117 道，前端题库 67 道；2026-10-28 新增 260 道题，包括 100 道 Java 后端/全栈/AI 题、100 道黑马/传智 Java 面试题整理和 60 道前端题。
 - 新增题目参考 2024 传智播客面试知识点（飞书知识库）及公开的黑马 Java 面试题目录，答案按面试回答场景重写，未逐字复制原文。
 - 已引入岗位赛道 `interview_track` 和题目绑定 `track_question`：当前主页展示 Java 后端、Java 全栈、Java + AI、前端四个岗位；旧 Java 后端 1-3 年和 Spring Cloud 模板保留为 INACTIVE，历史面试仍可查看。
-- 工作年限不再写进岗位名称，而是在创建面试弹窗选择：校招 / 应届、1-3 年、3-5 年，年限越高题目难度和追问深度越高。
+- 工作年限不再写进岗位名称，而是在创建面试弹窗选择：校招 / 应届、1-3 年、3-5 年；年限只通过题目难度区分，校招以简单题为主，3-5 年以困难题为主。
 - 创建面试时按 `job_template.track_id` 只检索该岗位题库，避免跨岗位串题。
 - 后台题库管理支持按岗位题库切换、新增题目和启用/禁用题目；禁用后该题不再参与面试检索，岗位卡片的题目数也会同步减少。
-- 新增题目时，分类、适用级别、标签、来源都是可搜索下拉框；已有值可直接选择，也可以输入新值并保存为后续可选选项。
+- 新增题目时，分类、标签、来源都是可搜索下拉框；已有值可直接选择，也可以输入新值并保存为后续可选选项。
 - 支持从 PDF、DOCX、TXT、Markdown 文档导入题目：系统优先用当前用户激活的 AI Provider 提取题目和答案，失败时回退到编号题/问答规则解析；识别结果会先展示在预览表中，可勾选、全选、逐题修改或移除，确认后再批量写入题库。扫描版 PDF 需要先 OCR。
 - 成长页根据历史回答的缺失要点和题目标签聚合薄弱点，推荐题库题目；推荐题目可展开查看参考答案。
 - 当前为关键词检索（RAG-lite），pgvector/bge-m3 向量检索留到部署阶段。

@@ -23,7 +23,7 @@ const submitting = ref(false)
 
 const form = reactive({
   resumeId: undefined as number | undefined,
-  difficulty: 'STANDARD',
+  difficulty: 'JUNIOR',
   durationMinutes: 30,
   persona: 'STANDARD',
   mode: 'INTERVIEW'
@@ -188,12 +188,13 @@ async function submit() {
       </section>
 
       <section class="field-block">
-        <div class="field-title"><span>难度</span></div>
+        <div class="field-title"><span>工作年限</span></div>
         <el-radio-group v-model="form.difficulty">
-          <el-radio-button value="EASY">简单</el-radio-button>
-          <el-radio-button value="STANDARD">标准</el-radio-button>
-          <el-radio-button value="HARD">挑战</el-radio-button>
+          <el-radio-button value="CAMPUS">校招 / 应届</el-radio-button>
+          <el-radio-button value="JUNIOR">1-3 年</el-radio-button>
+          <el-radio-button value="SENIOR">3-5 年</el-radio-button>
         </el-radio-group>
+        <p class="mode-hint">年限越高，题目难度和追问深度越高。</p>
       </section>
 
       <section class="field-block">

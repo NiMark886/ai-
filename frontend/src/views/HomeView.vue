@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { jobApi, type JobTemplate } from '@/api/job'
 import type { InterviewSession } from '@/api/interview'
@@ -13,6 +13,60 @@ const jobs = ref<JobTemplate[]>([])
 const loading = ref(true)
 const setupVisible = ref(false)
 const selectedJob = ref<JobTemplate | null>(null)
+const activeRoleFamily = ref('ALL')
+
+const ROLE_FAMILY_LABELS: Record<string, string> = {
+  BACKEND: '后端',
+  FRONTEND: '前端',
+  FULLSTACK: '全栈',
+  AI_APP: 'AI 应用',
+  ALGORITHM: '算法',
+  TEST: '测试'
+}
+
+const roleFamilyOptions = computed(() => {
+  const values = Array.from(new Set(jobs.value.map((job) => job.roleFamily).filter(Boolean))) as string[]
+  if (!values.includes('FRONTEND')) {
+    values.push('FRONTEND')
+  }
+  return [
+    { value: 'ALL', label: '全部' },
+    ...values.map((value) => ({
+      value,
+      label: ROLE_FAMILY_LABELS[value] ?? value
+    }))
+  ]
+})
+
+const frontendComingSoon = {
+  title: '前端',
+  category: '前端',
+  jdText: 'JavaScript/TypeScript、Vue/React、CSS、浏览器与工程化。前端题库正在建设中，Java 题库完善后开放。',
+  primaryLanguage: 'JS_TS',
+  roleFamily: 'FRONTEND',
+  questionCount: 7
+}
+
+const hasFrontendJob = computed(() => jobs.value.some((job) => job.roleFamily === 'FRONTEND'))
+
+const showFrontendPlaceholder = computed(() =>
+  !hasFrontendJob.value
+  && (activeRoleFamily.value === 'ALL' || activeRoleFamily.value === 'FRONTEND')
+)
+
+const templateCount = computed(() =>
+  jobs.value.length === 0 ? 4 : jobs.value.length + (hasFrontendJob.value ? 0 : 1)
+)
+
+const filteredJobs = computed(() =>
+  jobs.value.filter(
+    (job) => activeRoleFamily.value === 'ALL' || job.roleFamily === activeRoleFamily.value
+  )
+)
+
+const emptyDescription = computed(() =>
+  jobs.value.length === 0 ? '暂无岗位模板' : '该方向暂无岗位，试试其他方向'
+)
 
 onMounted(async () => {
   try {
@@ -42,7 +96,30 @@ function handleInterviewCreated(session: InterviewSession) {
   router.push(`/interviews/${session.id}`)
 }
 
+function languageLabel(job: JobTemplate): string {
+  const labels: Record<string, string> = {
+    JAVA: 'Java',
+    JS_TS: 'JavaScript/TypeScript',
+    PYTHON: 'Python',
+    GO: 'Go',
+    CPP: 'C++'
+  }
+  return job.primaryLanguage ? labels[job.primaryLanguage] ?? job.primaryLanguage : ''
+}
+
 function focusTags(job: JobTemplate): string[] {
+  if (job.trackCode === 'frontend' || job.roleFamily === 'FRONTEND') {
+    return ['JS/TS', 'Vue/React', '浏览器']
+  }
+  if (job.trackCode === 'java-fullstack-junior') {
+    return ['Java 后端', 'Vue/React', '接口联调']
+  }
+  if (job.trackCode === 'java-ai') {
+    return ['RAG', 'Agent', '提示词']
+  }
+  if (job.trackCode === 'java-microservices') {
+    return ['Nacos', 'Gateway', '分布式']
+  }
   if (job.category.includes('AI')) {
     return ['RAG', 'Agent', '提示词']
   }
@@ -52,18 +129,6 @@ function focusTags(job: JobTemplate): string[] {
   return ['基础八股', '项目深挖', '场景设计']
 }
 
-function sampleTopics(job: JobTemplate): string[] {
-  if (job.category.includes('AI')) {
-    return ['RAG 检索与召回优化', 'Agent 工具调用设计', 'Token 成本与效果评估']
-  }
-  if (job.category.includes('微服务')) {
-    return ['服务拆分与边界', 'Nacos 注册与配置', 'Gateway 限流与链路治理']
-  }
-  if (job.level.includes('校招')) {
-    return ['HashMap 与并发容器', '线程池与 JVM 基础', '项目难点与个人贡献']
-  }
-  return ['项目架构与技术取舍', 'MySQL / Redis 性能优化', '线上故障排查与复盘']
-}
 </script>
 
 <template>
@@ -96,44 +161,75 @@ function sampleTopics(job: JobTemplate): string[] {
           </p>
         </div>
         <div class="hero-badge">
-          <span>{{ jobs.length || 4 }}</span>
+          <span>{{ templateCount }}</span>
           <small>岗位模板</small>
+        </div>
+      </section>
+
+      <section v-if="!loading && jobs.length > 0" class="filters">
+        <div class="filter-group">
+          <span class="filter-label">方向</span>
+          <button
+            v-for="option in roleFamilyOptions"
+            :key="option.value"
+            type="button"
+            class="filter-chip"
+            :class="{ active: activeRoleFamily === option.value }"
+            @click="activeRoleFamily = option.value"
+          >
+            {{ option.label }}
+          </button>
         </div>
       </section>
 
       <el-skeleton v-if="loading" :rows="5" animated />
 
       <section v-else class="job-grid">
-        <article v-for="(job, index) in jobs" :key="job.id" class="job-card">
-          <span class="card-index">{{ String(index + 1).padStart(2, '0') }}</span>
-          <div class="job-body">
-            <div class="job-meta">
-              <span>{{ job.level }}</span>
-              <span>{{ job.category }}</span>
-            </div>
-            <h2>{{ job.title }}</h2>
-            <p class="job-desc">{{ job.jdText }}</p>
-            <div class="focus-row">
-              <span v-for="tag in focusTags(job)" :key="tag">{{ tag }}</span>
-            </div>
-            <p class="job-facts">20–30 分钟 · 6–10 题 · 五维评分报告</p>
-            <div class="sample-block">
-              <p class="sample-label">本场会问</p>
-              <ul class="sample-list">
-                <li v-for="topic in sampleTopics(job)" :key="topic">{{ topic }}</li>
-              </ul>
-            </div>
+        <article v-for="job in filteredJobs" :key="job.id" class="job-card">
+          <div class="job-meta">
+            <span v-if="job.primaryLanguage">{{ languageLabel(job) }}</span>
+            <span>{{ job.category }}</span>
           </div>
+          <h2>{{ job.title }}</h2>
+          <p class="job-desc">{{ job.jdText }}</p>
+          <div class="focus-row">
+            <span v-for="tag in focusTags(job)" :key="tag">{{ tag }}</span>
+          </div>
+          <p class="job-facts">
+            {{ job.questionCount }} 道题 · 20–30 分钟 · 校招 / 1-3 年 / 3-5 年
+          </p>
           <div class="card-footer">
-            <el-button type="primary" size="large" @click="startInterview(job)">
-              开始面试
-            </el-button>
+            <el-button type="primary" @click="startInterview(job)">开始面试</el-button>
             <span class="coming">约 1 分钟</span>
+          </div>
+        </article>
+
+        <article v-if="showFrontendPlaceholder" class="job-card job-card--coming">
+          <div class="job-meta">
+            <span>JavaScript/TypeScript</span>
+            <span>前端</span>
+          </div>
+          <h2>{{ frontendComingSoon.title }}</h2>
+          <p class="job-desc">{{ frontendComingSoon.jdText }}</p>
+          <div class="focus-row">
+            <span>JS/TS</span>
+            <span>Vue/React</span>
+            <span>CSS</span>
+          </div>
+          <p class="job-facts">
+            {{ frontendComingSoon.questionCount }} 道题 · 题库建设中 · 校招 / 1-3 年 / 3-5 年
+          </p>
+          <div class="card-footer">
+            <el-button type="primary" disabled>筹备中</el-button>
+            <span class="coming">Java 题库完善后开放</span>
           </div>
         </article>
       </section>
 
-      <el-empty v-if="!loading && jobs.length === 0" description="暂无岗位模板" />
+      <el-empty
+        v-if="!loading && filteredJobs.length === 0 && !showFrontendPlaceholder"
+        :description="emptyDescription"
+      />
     </main>
 
     <InterviewSetupDialog
@@ -247,12 +343,55 @@ function sampleTopics(job: JobTemplate): string[] {
   opacity: 0.82;
 }
 
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 28px;
+  margin: 0 0 18px;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filter-label {
+  color: #8a97a8;
+  font-size: 12px;
+}
+
+.filter-chip {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid #dbe6f2;
+  background: #fff;
+  color: #5b6b7f;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.filter-chip:hover {
+  border-color: #2e75b6;
+  color: #2e75b6;
+}
+
+.filter-chip.active {
+  border-color: #1f4e79;
+  background: #1f4e79;
+  color: #fff;
+}
+
 .job-grid {
   flex: 1;
   min-height: 0;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-rows: repeat(2, minmax(0, 1fr));
+  grid-template-rows: none;
+  grid-auto-rows: minmax(320px, auto);
   gap: 20px;
 }
 
@@ -393,10 +532,26 @@ function sampleTopics(job: JobTemplate): string[] {
   --accent-soft: rgba(108, 92, 231, 0.1);
 }
 
+.job-card:nth-child(5) {
+  --accent: #b23a48;
+  --accent-soft: rgba(178, 58, 72, 0.1);
+}
+
 .job-card:hover {
   transform: translateY(-4px);
   border-color: var(--accent);
   box-shadow: 0 20px 44px rgba(31, 78, 121, 0.13);
+}
+
+.job-card.job-card--coming {
+  --accent: #7f8c9d;
+  --accent-soft: rgba(127, 140, 157, 0.1);
+}
+
+.job-card.job-card--coming:hover {
+  transform: none;
+  border-color: #e4ecf5;
+  box-shadow: 0 10px 30px rgba(31, 78, 121, 0.06);
 }
 
 .card-index {
@@ -545,4 +700,146 @@ function sampleTopics(job: JobTemplate): string[] {
     -webkit-line-clamp: 4;
   }
 }
+/* Compact card layout: many positions can fit on one screen. */
+.content {
+  max-width: 1180px;
+  min-height: auto;
+  margin: 0 auto;
+  padding: 40px 32px 80px;
+  display: block;
+}
+
+.hero {
+  align-items: flex-end;
+  margin-bottom: 24px;
+}
+
+.job-grid {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-rows: none;
+  grid-auto-rows: auto;
+  gap: 20px;
+}
+
+.job-card {
+  position: relative;
+  height: auto;
+  min-height: 230px;
+  padding: 24px;
+  border-radius: 18px;
+  overflow: visible;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid #e4ecf5;
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.job-card::before,
+.job-card::after {
+  display: none;
+}
+
+.job-card:hover {
+  transform: translateY(-3px);
+  border-color: #d5e3f2;
+  box-shadow: 0 16px 34px rgba(31, 78, 121, 0.1);
+}
+
+.job-meta {
+  padding-right: 0;
+  margin-bottom: 12px;
+}
+
+.job-meta span {
+  background: #eef4fb;
+  color: #2e75b6;
+}
+
+.job-card h2 {
+  margin: 0 0 10px;
+  padding-right: 0;
+  font-size: 22px;
+  line-height: 1.35;
+}
+
+.job-desc {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.7;
+  -webkit-line-clamp: 3;
+}
+
+.focus-row {
+  margin-top: 14px;
+  gap: 6px;
+}
+
+.focus-row span {
+  padding: 3px 9px;
+  font-size: 11px;
+}
+
+.job-facts {
+  margin: 12px 0 0;
+  font-size: 12px;
+}
+
+.card-footer {
+  margin-top: auto;
+  padding-top: 18px;
+}
+
+.job-card :deep(.el-button--primary) {
+  height: 38px;
+  padding: 0 18px;
+  border-radius: 10px;
+  background: #1f4e79;
+  border-color: #1f4e79;
+  font-size: 14px;
+}
+
+.job-card :deep(.el-button--primary:hover) {
+  background: #1f4e79;
+  border-color: #1f4e79;
+}
+
+.job-card.job-card--coming {
+  background: #fafbfd;
+  border-style: dashed;
+}
+
+.job-card.job-card--coming h2 {
+  color: #5b6b7f;
+}
+
+.job-card.job-card--coming :deep(.el-button--primary) {
+  background: #e8eef5;
+  border-color: #e8eef5;
+  color: #7f8c9d;
+}
+
+@media (max-width: 760px) {
+  .content {
+    padding: 24px 18px 44px;
+  }
+
+  .hero {
+    align-items: flex-start;
+    flex-direction: column;
+    margin-bottom: 20px;
+  }
+
+  .job-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .job-card {
+    min-height: 210px;
+  }
+}
+
+
 </style>

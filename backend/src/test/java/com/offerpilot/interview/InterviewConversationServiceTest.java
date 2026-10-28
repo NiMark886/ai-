@@ -4,8 +4,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.offerpilot.common.exception.BusinessException;
 import com.offerpilot.interview.domain.InterviewMessage;
 import com.offerpilot.interview.domain.InterviewQuestion;
+import com.offerpilot.interview.domain.InterviewSession;
 import com.offerpilot.interview.mapper.InterviewMessageMapper;
 import com.offerpilot.interview.mapper.InterviewQuestionMapper;
+import com.offerpilot.interview.mapper.InterviewSessionMapper;
 import com.offerpilot.interview.service.InterviewConversationService;
 import com.offerpilot.interview.service.InterviewService;
 import com.offerpilot.interview.web.dto.AnswerRequest;
@@ -58,6 +60,9 @@ class InterviewConversationServiceTest {
 
     @Autowired
     private InterviewMessageMapper messageMapper;
+
+    @Autowired
+    private InterviewSessionMapper sessionMapper;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -202,6 +207,23 @@ class InterviewConversationServiceTest {
         assertThat(result.evaluation()).isNotNull();
         assertThat(result.evaluation().correctness()).isIn("CORRECT", "PARTIAL");
         assertThat(conversationService.evaluations(user.getId(), session.id())).hasSize(1);
+    }
+
+    @Test
+    void storesTrackIdFromJobTemplate() throws Exception {
+        User user = createUser();
+        Resume resume = createResume(user);
+        var job = jobTemplateMapper.selectList(null).stream()
+                .filter(item -> "ACTIVE".equals(item.getStatus()))
+                .filter(item -> item.getTrackId() != null)
+                .findFirst()
+                .orElseThrow();
+
+        InterviewSessionView session = interviewService.create(user.getId(),
+                new CreateInterviewRequest(job.getId(), resume.getId(), "STANDARD", 30, "STANDARD", "INTERVIEW"));
+
+        InterviewSession saved = sessionMapper.selectById(session.id());
+        assertThat(saved.getTrackId()).isEqualTo(job.getTrackId());
     }
 
     private User createUser() {

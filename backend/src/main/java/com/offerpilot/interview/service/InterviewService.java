@@ -23,6 +23,8 @@ import com.offerpilot.quota.service.QuotaService;
 import com.offerpilot.resume.domain.Resume;
 import com.offerpilot.resume.domain.ResumeProfile;
 import com.offerpilot.resume.mapper.ResumeMapper;
+import com.offerpilot.track.domain.InterviewTrack;
+import com.offerpilot.track.service.InterviewTrackService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -42,6 +44,7 @@ public class InterviewService {
     private final ResumeMapper resumeMapper;
     private final InterviewBlueprintGenerator blueprintGenerator;
     private final QuestionBankRetriever questionBankRetriever;
+    private final InterviewTrackService trackService;
     private final QuotaService quotaService;
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transactionTemplate;
@@ -52,6 +55,7 @@ public class InterviewService {
                             ResumeMapper resumeMapper,
                             InterviewBlueprintGenerator blueprintGenerator,
                             QuestionBankRetriever questionBankRetriever,
+                            InterviewTrackService trackService,
                             QuotaService quotaService,
                             ObjectMapper objectMapper,
                             TransactionTemplate transactionTemplate) {
@@ -61,6 +65,7 @@ public class InterviewService {
         this.resumeMapper = resumeMapper;
         this.blueprintGenerator = blueprintGenerator;
         this.questionBankRetriever = questionBankRetriever;
+        this.trackService = trackService;
         this.quotaService = quotaService;
         this.objectMapper = objectMapper;
         this.transactionTemplate = transactionTemplate;
@@ -77,16 +82,19 @@ public class InterviewService {
             throw new BusinessException(ErrorCode.NOT_FOUND, "简历不存在");
         }
 
+        InterviewTrack track = trackService.resolveForJob(job);
+        Long trackId = track == null ? null : track.getId();
         ResumeProfile profile = readProfile(resume);
         List<String> tags = new ArrayList<>();
         tags.add(job.getCategory());
         if (profile != null && profile.skills() != null) {
             tags.addAll(profile.skills());
         }
-        var retrieved = questionBankRetriever.retrieve(job.getJdText(), tags, 8);
+        var retrieved = questionBankRetriever.retrieve(job.getJdText(), tags, 8, trackId);
         quotaService.checkAvailable(userId);
         InterviewBlueprint blueprint = blueprintGenerator.generate(new BlueprintRequest(
-                job, profile, request.difficulty(), request.durationMinutes(), request.persona(), retrieved));
+                job, track, profile, request.difficulty(), request.durationMinutes(),
+                request.persona(), retrieved));
 
         return Objects.requireNonNull(transactionTemplate.execute(status -> {
             quotaService.checkAndConsumeSession(userId);
@@ -94,6 +102,7 @@ public class InterviewService {
             InterviewSession session = new InterviewSession();
             session.setUserId(userId);
             session.setJobTemplateId(job.getId());
+            session.setTrackId(trackId);
             session.setResumeId(resume.getId());
             session.setDifficulty(request.difficulty());
             session.setDurationMinutes(request.durationMinutes());

@@ -179,10 +179,13 @@ python scripts/load_test.py --users 20 --base-url http://localhost:8080
 | DELETE | `/api/ai/providers/{id}` | 删除 AI Provider |
 | POST | `/api/ai/providers/{id}/activate` | 设为当前 Provider |
 | POST | `/api/ai/providers/{id}/test` | 测试连接 |
-| GET | `/api/admin/questions` | 管理员题库分页 |
-| POST | `/api/admin/questions` | 管理员新增题目 |
-| PUT | `/api/admin/questions/{id}` | 管理员编辑题目 |
+| GET | `/api/admin/questions` | 管理员题库分页，支持 `trackId` 筛选 |
+| POST | `/api/admin/questions` | 管理员新增题目，可带 `trackIds` |
+| PUT | `/api/admin/questions/{id}` | 管理员编辑题目，可带 `trackIds` |
 | DELETE | `/api/admin/questions/{id}` | 管理员删除题目 |
+| GET | `/api/admin/tracks` | 岗位题库列表与题目数 |
+| POST | `/api/admin/tracks/{id}/questions` | 批量绑定题目到岗位题库 |
+| DELETE | `/api/admin/tracks/{id}/questions/{questionId}` | 从岗位题库移除题目 |
 
 ## AI 配置（可选）
 
@@ -228,8 +231,11 @@ AI 调用失败会自动回退 Mock 生成器，不会阻塞面试创建。上�
 
 ## 题库与薄弱点
 
-- `question_bank` 表内置 140 道 Java 后端 / AI 面试题（含参考答案、分类、标签），其中 Java 基础、集合、并发、JVM 共 77 道。
-- 创建面试时按岗位 JD、简历技能和题库标签做关键词检索，题库题目会进入 BASIC 题池。
+- `question_bank` 表内置 300 道面试题（含参考答案、分类、标签），其中 Java 基础、集合、并发、JVM 共 105 道，前端题库 67 道；2026-10-28 新增 100 道 Java 后端/全栈/AI 题和 60 道前端题。
+- 已引入岗位赛道 `interview_track` 和题目绑定 `track_question`：当前主页展示 Java 后端、Java 全栈、Java + AI、前端四个岗位；旧 Java 后端 1-3 年和 Spring Cloud 模板保留为 INACTIVE，历史面试仍可查看。
+- 工作年限不再写进岗位名称，而是在创建面试弹窗选择：校招 / 应届、1-3 年、3-5 年，年限越高题目难度和追问深度越高。
+- 创建面试时按 `job_template.track_id` 只检索该岗位题库，避免跨岗位串题。
+- 后台题库管理支持按岗位题库切换、创建/编辑题目时多选所属题库、从当前题库移除；删除题目会从所有题库移除。
 - 成长页根据历史回答的缺失要点和题目标签聚合薄弱点，推荐题库题目；推荐题目可展开查看参考答案。
 - 当前为关键词检索（RAG-lite），pgvector/bge-m3 向量检索留到部署阶段。
 
@@ -239,7 +245,7 @@ AI 调用失败会自动回退 Mock 生成器，不会阻塞面试创建。上�
 - 密码：`admin123`
 - 仅本地开发使用，部署前请修改密码或移除种子账号。
 
-管理员登录后首页会出现“题库管理”入口，可对题库进行分页查询、新增、编辑和软删除；普通用户访问管理员接口返回 403。
+管理员登录后首页会出现“题库管理”入口，可按岗位题库筛选题目，并进行分页查询、新增、编辑、软删除和从当前题库移除；普通用户访问管理员接口返回 403。
 
 ## 额度（默认关闭）
 

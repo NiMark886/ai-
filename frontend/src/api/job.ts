@@ -6,6 +6,13 @@ export interface JobTemplate {
   level: string
   category: string
   jdText: string
+  trackId: number | null
+  trackCode: string | null
+  trackName: string | null
+  roleFamily: string | null
+  primaryLanguage: string | null
+  trackLevel: string | null
+  questionCount: number
 }
 
 export const jobApi = {

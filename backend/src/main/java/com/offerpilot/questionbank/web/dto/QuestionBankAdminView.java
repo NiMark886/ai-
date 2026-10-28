@@ -16,11 +16,17 @@ public record QuestionBankAdminView(
         String referenceAnswer,
         String source,
         String status,
+        List<Long> trackIds,
+        List<String> trackNames,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
 
     public static QuestionBankAdminView from(QuestionBank bank) {
+        return from(bank, List.of(), List.of());
+    }
+
+    public static QuestionBankAdminView from(QuestionBank bank, List<Long> trackIds, List<String> trackNames) {
         List<String> tags = bank.getTags() == null ? List.of()
                 : Arrays.stream(bank.getTags().split(","))
                 .map(String::trim)
@@ -29,6 +35,7 @@ public record QuestionBankAdminView(
         return new QuestionBankAdminView(
                 bank.getId(), bank.getCategory(), bank.getLevel(), tags,
                 bank.getDifficulty(), bank.getQuestion(), bank.getReferenceAnswer(),
-                bank.getSource(), bank.getStatus(), bank.getCreatedAt(), bank.getUpdatedAt());
+                bank.getSource(), bank.getStatus(), trackIds, trackNames,
+                bank.getCreatedAt(), bank.getUpdatedAt());
     }
 }

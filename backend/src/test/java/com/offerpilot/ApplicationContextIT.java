@@ -18,6 +18,8 @@ class ApplicationContextIT {
     @Test
     void createsTablesAndSeedsJobTemplates() {
         Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM job_template", Integer.class);
-        assertThat(count).isEqualTo(4);
+        assertThat(count).isEqualTo(6);
+        Integer trackCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM interview_track", Integer.class);
+        assertThat(trackCount).isEqualTo(6);
     }
 }
